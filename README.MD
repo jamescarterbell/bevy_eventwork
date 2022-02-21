@@ -21,7 +21,7 @@ Simply add either the server/client plugins, your chosen transport provider (a s
 Documentation
 -------------
 
-You can check out the [**online documentation**](https://docs.rs/bevy_spicy_networking), or build it yourself by cloning this repo and running `cargo doc -p bevy_spicy_networking`.
+You can check out the [**online documentation**](https://docs.rs/bevy_eventwork), or build it yourself by cloning this repo and running `cargo doc -p bevy_eventwork`.
 
 For examples, check out the [examples directory](https://github.com/jamescarterbell/bevy_eventwork/tree/master/examples).
 
@@ -56,7 +56,7 @@ impl ServerMessage for WhisperMessage {
 3. On the recipient side, register the type to be received
 
 ```rust
-use bevy_spicy_networking::AppNetworkServerMessage;
+use bevy_eventwork::AppNetworkServerMessage;
 
 let appbuilder: &mut AppBuilder = /* Get an AppBuilder, which is returned by bevy from App::build() */;
 
