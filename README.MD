@@ -1,19 +1,4 @@
-<img align="left" src="assets/spicy_networking_logo.svg" width="128">
-<h1 align="center">
-    Bevy Eventwork
-</h1>
-
-<p align="center">
-    <a href="https://crates.io/crates/bevy_spicy_networking">
-        <img src="https://img.shields.io/crates/v/bevy_spicy_networking?logo=rust" alt="crates.io">
-    </a>
-    <a href="https://docs.rs/bevy_spicy_networking">
-        <img src="https://docs.rs/bevy_spicy_networking/badge.svg" alt="docs.rs">
-    </a>
-    <img src="https://img.shields.io/badge/%F0%9F%8C%B6%20Spicy%3F-Yes-red" alt="spicy" />
-</p>
-
-> `bevy_entwork` is a solution to the "How do I connect multiple clients to a single server" problem in your [bevy](https://bevyengine.org/) games, forked from [`bevy_spicy_networking`](https://crates.io/crates/bevy_spicy_networking).
+> `bevy_eventwork` is a solution to the "How do I connect multiple clients to a single server" problem in your [bevy](https://bevyengine.org/) games, forked from [`bevy_spicy_networking`](https://crates.io/crates/bevy_spicy_networking).
 
 <hr>
 
