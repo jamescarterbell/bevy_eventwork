@@ -1,12 +1,12 @@
 use bevy::app::ScheduleRunnerSettings;
 use bevy::prelude::*;
-use bevy_spicy_networking::{ConnectionId, NetworkData, NetworkServer, ServerNetworkEvent};
+use bevy_eventwork::{ConnectionId, NetworkData, NetworkServer, ServerNetworkEvent};
 use std::net::{SocketAddr, IpAddr};
 use std::ops::Deref;
 use std::str::FromStr;
 use std::time::Duration;
 
-use bevy_spicy_tcp::{TcpServerProvider, NetworkSettings, TcpClientProvider};
+use eventwork_tcp::{TcpServerProvider, NetworkSettings, TcpClientProvider};
 
 mod shared;
 
@@ -25,7 +25,7 @@ fn main() {
 
     // Before we can register the potential message types, we
     // need to add the plugin
-    app.add_plugin(bevy_spicy_networking::ServerPlugin::<TcpServerProvider, bevy::tasks::TaskPool>::default());
+    app.add_plugin(bevy_eventwork::ServerPlugin::<TcpServerProvider, bevy::tasks::TaskPool>::default());
 
     // A good way to ensure that you are not forgetting to register
     // any messages is to register them where they are defined!
