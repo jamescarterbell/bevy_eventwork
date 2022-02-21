@@ -12,6 +12,7 @@ use crate::{
     ClientNetworkEvent, ConnectionId, NetworkData, NetworkPacket, SyncChannel, AsyncChannel, Runtime, Connection, runtime::JoinHandle,
 };
 
+
 /// A trait used by [`NetworkClient`] to drive a client, this is responsible
 /// for generating the futures that carryout the underlying client logic.
 #[async_trait]
@@ -42,7 +43,6 @@ pub trait NetworkClientProvider: 'static + Send + Sync{
     /// can be handled concurrently.
     fn split(combined: Self::Socket) -> (Self::ReadHalf, Self::WriteHalf);
 }
-
 
 /// An instance of a [`NetworkClient`] is used to connect to a remote server
 /// using [`NetworkClient::connect`]

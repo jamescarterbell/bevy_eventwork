@@ -1,8 +1,8 @@
 use bevy::prelude::*;
-use bevy_spicy_tcp::{TcpClientProvider, TcpServerProvider};
+use eventwork_tcp::{TcpClientProvider, TcpServerProvider};
 use serde::{Deserialize, Serialize};
 
-use bevy_spicy_networking::{ClientMessage, ServerMessage};
+use bevy_eventwork::{ClientMessage, ServerMessage};
 
 /////////////////////////////////////////////////////////////////////
 // In this example the client sends `UserChatMessage`s to the server,
@@ -37,7 +37,7 @@ impl ClientMessage for NewChatMessage {
 
 #[allow(unused)]
 pub fn client_register_network_messages(app: &mut App) {
-    use bevy_spicy_networking::AppNetworkClientMessage;
+    use bevy_eventwork::AppNetworkClientMessage;
 
     // The client registers messages that arrives from the server, so that
     // it is prepared to handle them. Otherwise, an error occurs.
@@ -46,7 +46,7 @@ pub fn client_register_network_messages(app: &mut App) {
 
 #[allow(unused)]
 pub fn server_register_network_messages(app: &mut App) {
-    use bevy_spicy_networking::AppNetworkServerMessage;
+    use bevy_eventwork::AppNetworkServerMessage;
 
     // The server registers messages that arrives from a client, so that
     // it is prepared to handle them. Otherwise, an error occurs.

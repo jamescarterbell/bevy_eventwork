@@ -1,11 +1,11 @@
 [package]
-name = "bevy_spicy_networking"
-version = "0.6.1"
-authors = ["Neikos <neikos@neikos.email>", "James <jamescarterbell@gmail.com>"]
-edition = "2018"
-description = "A spicy 🌶🌶🌶 and simple networking plugin for Bevy"
+name = "bevy_eventwork"
+version = "0.6.0"
+authors = ["James <jamescarterbell@gmail.com>", "Neikos <neikos@neikos.email>"]
+edition = "2021"
+description = "Event based networking library for Bevy"
 readme = "README.md"
-repository = "https://github.com/CabbitStudios/bevy_spicy_networking"
+repository = "https://github.com/jamescarterbell/bevy_eventwork"
 license = "MIT"
 categories = ["game-development", "network-programming"]
 autoexamples = false
@@ -36,9 +36,9 @@ async-trait = "0.1.52"
 
 [dev-dependencies]
 bevy = { version = "0.6" }
-bevy_spicy_tcp = {path = "./bevy_spicy_tcp"}
+eventwork_tcp = {path = "eventwork_tcp"}
 
 [workspace]
 members = [
-    "bevy_spicy_tcp"
+    "eventwork_tcp",
 ]

@@ -13,18 +13,20 @@
 #![allow(clippy::type_complexity)]
 
 /*!
-A spicy simple networking plugin for Bevy
+A simple networking plugin for Bevy designed to work with Bevy's event architecture.
 
-Using this plugin is meant to be straightforward. You have one server and multiple clients.
-You simply add either the `ClientPlugin` or the `ServerPlugin` to the respective bevy app,
+Using this plugin is meant to be straightforward and highly configurable. You have one server and multiple clients.
+You simply add either the `ClientPlugin` or the `ServerPlugin` to the respective bevy app, the runtime you wish to use,
+and the netowrking provider you wish to use.  Then, 
 register which kind of messages can be received through `listen_for_client_message` or `listen_for_server_message`
-(provided respectively by `AppNetworkClientMessage` and `AppNetworkServerMessage`) and you
+(provided respectively by `AppNetworkClientMessage` and `AppNetworkServerMessage`), as well as which provider you want
+to handle these messages and you
 can start receiving packets as events of `NetworkData<T>`.
 
 ## Example Client
 ```rust,no_run
 use bevy::prelude::*;
-use bevy_spicy_networking::{ClientPlugin, NetworkData, NetworkMessage, ServerMessage, ClientNetworkEvent, AppNetworkServerMessage};
+use bevy_eventwork::{ClientPlugin, NetworkData, NetworkMessage, ServerMessage, ClientNetworkEvent, AppNetworkServerMessage};
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
@@ -68,7 +70,7 @@ fn handle_connection_events(mut network_events: EventReader<ClientNetworkEvent>,
 ## Example Server
 ```rust,no_run
 use bevy::prelude::*;
-use bevy_spicy_networking::{ServerPlugin, NetworkData, NetworkMessage, NetworkServer, ServerMessage, ClientMessage, ServerNetworkEvent, AppNetworkClientMessage};
+use bevy_eventwork::{ServerPlugin, NetworkData, NetworkMessage, NetworkServer, ServerMessage, ClientMessage, ServerNetworkEvent, AppNetworkClientMessage};
 
 use serde::{Serialize, Deserialize};
 #[derive(Serialize, Deserialize)]
@@ -133,13 +135,7 @@ fn handle_connection_events(
 ```
 As you can see, they are both quite similar, and provide everything a basic networked game needs.
 
-For a more
-
-## Caveats
-
-Currently this library uses TCP under the hood. Meaning that it has all its drawbacks, where for example a very large update packet can
-'block' the connection. This is currently not built for fast-paced games that are not meant to be played on LAN, but should suffice for slow-paced
-games where less-stringent latency delays might be acceptable.
+Currently, Bevy's [TaskPool] is the default runtime used by Eventwork. 
 */
 
 /// Contains all functionality for contenctin to a server, sending, and recieving messages with it.
@@ -309,7 +305,7 @@ impl Connection {
 #[derive(Default, Copy, Clone, Debug)]
 /// The plugin to add to your bevy [`App`](bevy::prelude::App) when you want
 /// to instantiate a server
-pub struct ServerPlugin<NSP: NetworkServerProvider, RT: Runtime>(PhantomData<(NSP, RT)>);
+pub struct ServerPlugin<NSP: NetworkServerProvider, RT: Runtime = bevy::tasks::TaskPool>(PhantomData<(NSP, RT)>);
 
 impl<NSP: NetworkServerProvider + Default, RT: Runtime> Plugin for ServerPlugin<NSP, RT> {
     fn build(&self, app: &mut App) {
@@ -325,7 +321,7 @@ impl<NSP: NetworkServerProvider + Default, RT: Runtime> Plugin for ServerPlugin<
 #[derive(Default, Copy, Clone, Debug)]
 /// The plugin to add to your bevy [`App`](bevy::prelude::App) when you want
 /// to instantiate a client
-pub struct ClientPlugin<NCP: NetworkClientProvider, RT: Runtime>(PhantomData<(NCP, RT)>);
+pub struct ClientPlugin<NCP: NetworkClientProvider, RT: Runtime = bevy::tasks::TaskPool>(PhantomData<(NCP, RT)>);
 
 impl<NCP: NetworkClientProvider + Default, RT: Runtime> Plugin for ClientPlugin<NCP, RT> {
     fn build(&self, app: &mut App) {

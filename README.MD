@@ -1,6 +1,6 @@
 <img align="left" src="assets/spicy_networking_logo.svg" width="128">
 <h1 align="center">
-    Spicy Networking for Bevy
+    Bevy Eventwork
 </h1>
 
 <p align="center">
@@ -13,14 +13,12 @@
     <img src="https://img.shields.io/badge/%F0%9F%8C%B6%20Spicy%3F-Yes-red" alt="spicy" />
 </p>
 
-> `bevy_spicy_networking` is a solution to the "How do I connect multiple clients to a single server" problem in your [bevy](https://bevyengine.org/) games.
+> `bevy_entwork` is a solution to the "How do I connect multiple clients to a single server" problem in your [bevy](https://bevyengine.org/) games, forked from [`bevy_spicy_networking`](https://crates.io/crates/bevy_spicy_networking).
 
 <hr>
 
-Using tokio as the asynchronous backend, it fully integrates into bevy to allow you to quickly add networking to your game.
-Simply add either the server/client plugins, register the types of messages you plan on receiving and listen for them as events!
+Simply add either the server/client plugins, your chosen transport provider (a simple tcp provider is provided), and your runtime, then register the types of messages you plan on receiving and listen for them as events!
 
-It is meant as a unifying crate for networking. Other crates can extend your game by registering their own messages. This is achieved through the amazing [`typetag`](https://github.com/dtolnay/typetag) crate.
 
 <hr>
 
@@ -30,7 +28,8 @@ It is meant as a unifying crate for networking. Other crates can extend your gam
 - [Bevy Version Compatibility](#bevy-version-compatibility)
 - [Supported Platforms](#supported-platforms)
 - [Roadmap](#roadmap)
-- [Crates using `bevy_spicy_networking`](#crates-using-bevy_spicy_networking)
+- [Crates using `bevy_eventwork`](#crates-using-bevy_eventwork)
+- [Transport providers for`bevy_eventwork`](#transport-providers-for-bevy_eventwork)
 - [Contributing](#contributing)
 
 
@@ -39,7 +38,7 @@ Documentation
 
 You can check out the [**online documentation**](https://docs.rs/bevy_spicy_networking), or build it yourself by cloning this repo and running `cargo doc -p bevy_spicy_networking`.
 
-For examples, check out the [examples directory](https://github.com/CabbitStudios/bevy_spicy_networking/tree/master/examples).
+For examples, check out the [examples directory](https://github.com/jamescarterbell/bevy_eventwork/tree/master/examples).
 
 - In `server.rs` you will find a simple chat server, that broadcasts the messages it receives from clients
 - In `client.rs` you will find a simple graphical chat client, where you can connect to a server and send messages to
@@ -49,12 +48,11 @@ is more complete.)
 
 ### Quickstart
 
-1. Add `bevy_spicy_networking`, `serde_derive` and `typetag` to your `Cargo.toml`
+1. Add `bevy_eventwork`, and `serde_derive` to your `Cargo.toml`
 2. Create the messages you wish to exchange beetween a client and server, or vice-versa.
     - Implement Serialize and Deserialize from Serde on it
-    - Implement `NetworkMessage`, and make sure to annotate it with `typetag::serde`
-    - Implement `ServerMessage` when it is sent to the server from a client
-    - Implement `ClientMessage` when it is sent to a client from the server
+    - Implement `ServerMessage` when it is sent to the server from a client.
+    - Implement `ClientMessage` when it is sent to a client from the server.
 
 ```rust
 #[derive(Serialize, Deserialize)]
@@ -62,9 +60,6 @@ struct WhisperMessage {
     recipient: UserId,
     message: String,
 }
-
-#[typetag::serde]
-impl NetworkMessage for WhisperMessage {}
 
 // In this case, its a client sending a message to a server
 impl ServerMessage for WhisperMessage {
@@ -98,17 +93,15 @@ fn handle_incoming_whisper_messages(
 }
 ```
 
-5. Enjoy easy and 🌶 networking in your game!
-
 
 Bevy Version Compatibility
 --------------------------
 
 Simply pick the version compatible to your bevy version:
 
-| Bevy Spicy Networking | Bevy  |
-| :-------------------: | :---: |
-|          0.5          |  0.5  |
+| Bevy Eventwork | Bevy  |
+| :------------: | :---: |
+|       0.6      |  0.6  |
 
 Any version that is not compatible with the latest bevy version is in maintenance mode.
 It will only receive minor bug fixes from my side, or community supplied ones.
@@ -121,10 +114,10 @@ Currently only **Linux** and **Windows** are officially supported, I don't see w
 Roadmap
 -------
 
-Currently `bevy_spicy_networking` uses TCP only. This will change at some point, with individual messages being able to specify how they should be delivered. This change will be compatible, or with only minor changes necessary.
+Currently `bevy_eventwork` uses TCP only. This will change at some point, with individual messages being able to specify how they should be delivered. This change will be compatible, or with only minor changes necessary.
 
 
-Crates using `bevy_spicy_networking`
+Crates using `bevy_eventwork`
 --------------------
 
 > Currently none, you can help by expanding this list. Just send a PR and add it to the table below!
@@ -136,4 +129,6 @@ Crates using `bevy_spicy_networking`
 Contributing
 ------------
 
-To contribute, simply fork the repository and send a PR. Feel free to chat me up on the bevy discord under `@Hemera#2040` if you have any questions or suggestions.
+To contribute, simply fork the repository and send a PR.
+
+ Feel free to chat me up on the bevy discord under `@SirCarter#8209` if you have any questions, suggestions, or I'm not looking into your PR fast enough and you need someone to yell at (respectfully of course).

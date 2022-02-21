@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 
 use bevy::prelude::*;
-use bevy_spicy_networking::{ClientNetworkEvent, NetworkClient, NetworkData};
+use bevy_eventwork::{ClientNetworkEvent, NetworkClient, NetworkData};
 use std::{net::{SocketAddr, IpAddr}, str::FromStr, ops::Deref};
 
 use bevy_spicy_tcp::{TcpClientProvider, NetworkSettings};
@@ -15,7 +15,7 @@ fn main() {
 
     // You need to add the `ClientPlugin` first before you can register
     // `ClientMessage`s
-    app.add_plugin(bevy_spicy_networking::ClientPlugin::<TcpClientProvider, bevy::tasks::TaskPool>::default());
+    app.add_plugin(bevy_eventwork::ClientPlugin::<TcpClientProvider, bevy::tasks::TaskPool>::default());
     
     app.insert_resource(
         bevy::tasks::TaskPoolBuilder::new()

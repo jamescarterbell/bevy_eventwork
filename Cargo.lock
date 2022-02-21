@@ -394,6 +394,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_eventwork"
+version = "0.6.0"
+dependencies = [
+ "async-channel",
+ "async-trait",
+ "bevy",
+ "bincode",
+ "dashmap",
+ "derive_more",
+ "eventwork_tcp",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "bevy_gilrs"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -617,32 +632,6 @@ dependencies = [
  "serde",
  "thiserror",
  "uuid",
-]
-
-[[package]]
-name = "bevy_spicy_networking"
-version = "0.6.1"
-dependencies = [
- "async-channel",
- "async-trait",
- "bevy",
- "bevy_spicy_tcp",
- "bincode",
- "dashmap",
- "derive_more",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "bevy_spicy_tcp"
-version = "0.1.0"
-dependencies = [
- "async-net",
- "bevy",
- "bevy_spicy_networking",
- "bincode",
- "futures-lite",
 ]
 
 [[package]]
@@ -1370,6 +1359,17 @@ name = "event-listener"
 version = "2.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77f3309417938f28bf8228fcff79a4a37103981e3e186d2ccd19c74b38f4eb71"
+
+[[package]]
+name = "eventwork_tcp"
+version = "0.6.0"
+dependencies = [
+ "async-net",
+ "bevy_eventwork",
+ "bevy_log",
+ "bincode",
+ "futures-lite",
+]
 
 [[package]]
 name = "fastrand"

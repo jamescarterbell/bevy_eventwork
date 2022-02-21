@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
-use bevy::prelude::{error, trace, debug, info};
-use bevy_spicy_networking::{async_trait, server::NetworkServerProvider, client::NetworkClientProvider, NetworkPacket, ClientNetworkEvent, error::NetworkError, async_channel::{Sender, Receiver, unbounded}};
+use bevy_log::{error, trace, debug, info};
+use bevy_eventwork::{async_trait, server::NetworkServerProvider, client::NetworkClientProvider, NetworkPacket, ClientNetworkEvent, error::NetworkError, async_channel::{Sender, Receiver, unbounded}};
 use async_net::{TcpStream, TcpListener};
 use futures_lite::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
