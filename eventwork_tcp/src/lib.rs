@@ -229,11 +229,27 @@ impl NetworkClientProvider for TcpClientProvider{
         let mut buffer = vec![0; settings.max_packet_length];
         loop {
             info!("Reading message length");
-            let length = match read_half.read_exact(&mut buffer[..8]).await {
-                Ok(len) => {
+            let length = match read_half.read(&mut buffer[..8]).await {
+                Ok(0) => {
+                    // EOF, meaning the TCP stream has closed.
+                    info!(
+                        "Client disconnected"
+                    );
+                    // TODO: probably want to do more than just quit the receive task.
+                    //       to let eventwork know that the peer disconnected.
+                    break;
+                }
+                Ok(8) => {
                     let bytes = &buffer[..8];
                     u64::from_le_bytes(bytes.try_into().unwrap()) as usize
                 },
+                Ok(n) => {
+                    error!(
+                        "Could not read enough bytes for header. Expected 8, got {}",
+                        n
+                    );
+                    break;
+                }
                 Err(err) => {
                     error!(
                         "Encountered error while fetching length: {}",
