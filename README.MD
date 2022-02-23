@@ -1,4 +1,4 @@
-> `bevy_eventwork` is a solution to the "How do I connect multiple clients to a single server" problem in your [bevy](https://bevyengine.org/) games, forked from [`bevy_spicy_networking`](https://crates.io/crates/bevy_spicy_networking).
+> `bevy_eventwork` is a solution to the "How do I connect multiple clients to a single server" problem in your [bevy](https://bevyengine.org/) games, forked from the excellent [`bevy_spicy_networking`](https://crates.io/crates/bevy_spicy_networking), with significant changes for modularity and including the removal of big dependencies like tokio and typetag.
 
 <hr>
 
