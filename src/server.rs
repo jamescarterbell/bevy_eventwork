@@ -1,21 +1,22 @@
-use std::{net::SocketAddr, sync::Arc, marker::PhantomData};
+use std::{marker::PhantomData, sync::Arc};
 
-use async_channel::{Sender, Receiver, unbounded};
+use async_channel::{unbounded, Receiver, Sender};
+use async_trait::async_trait;
 use bevy::{prelude::*, utils::Uuid};
 use dashmap::DashMap;
-use async_trait::async_trait;
 
 use crate::{
     error::NetworkError,
     network_message::{ClientMessage, ServerMessage},
-    ConnectionId, NetworkData, NetworkPacket, ServerNetworkEvent, SyncChannel, AsyncChannel, Connection, runtime::JoinHandle, Runtime,
+    runtime::JoinHandle,
+    AsyncChannel, Connection, ConnectionId, NetworkData, NetworkPacket, Runtime,
+    ServerNetworkEvent,
 };
-
 
 /// A trait used by [`NetworkServer`] to drive a server, this is responsible
 /// for generating the futures that carryout the underlying server logic.
 #[async_trait]
-pub trait NetworkServerProvider: 'static + Send + Sync{
+pub trait NetworkServerProvider: 'static + Send + Sync {
     /// This is to configure particular protocols
     type NetworkSettings: Send + Sync + Clone;
 
@@ -25,18 +26,30 @@ pub trait NetworkServerProvider: 'static + Send + Sync{
 
     /// The read half of the given socket type.
     type ReadHalf: Send;
-    
+
     /// The write half of the given socket type.
     type WriteHalf: Send;
-    
+
     /// This will be spawned as a background operation to continuously add new connections.
-    async fn accept_loop(network_settings: Self::NetworkSettings, new_connections: Sender<Self::Socket>, errors: Sender<NetworkError>);
+    async fn accept_loop(
+        network_settings: Self::NetworkSettings,
+        new_connections: Sender<Self::Socket>,
+        errors: Sender<NetworkError>,
+    );
 
     /// Recieves messages from the client, forwards them to Spicy via a sender.
-    async fn recv_loop(read_half: Self::ReadHalf, messages: Sender<NetworkPacket>, settings: Self::NetworkSettings);
-    
+    async fn recv_loop(
+        read_half: Self::ReadHalf,
+        messages: Sender<NetworkPacket>,
+        settings: Self::NetworkSettings,
+    );
+
     /// Sends messages to the client, receives packages from Spicy via receiver.
-    async fn send_loop(write_half: Self::WriteHalf, messages: Receiver<NetworkPacket>, settings: Self::NetworkSettings);
+    async fn send_loop(
+        write_half: Self::WriteHalf,
+        messages: Receiver<NetworkPacket>,
+        settings: Self::NetworkSettings,
+    );
 
     /// Split the socket into a read and write half, so that the two actions
     /// can be handled concurrently.
@@ -66,7 +79,7 @@ impl<NSP: NetworkServerProvider> std::fmt::Debug for NetworkServer<NSP> {
 }
 
 impl<NSP: NetworkServerProvider> NetworkServer<NSP> {
-    pub(crate) fn new(provider: NSP) -> Self {
+    pub(crate) fn new(_provider: NSP) -> Self {
         Self {
             recv_message_map: Arc::new(DashMap::new()),
             established_connections: Arc::new(DashMap::new()),
@@ -92,7 +105,6 @@ impl<NSP: NetworkServerProvider> NetworkServer<NSP> {
         let new_connections = self.new_connections.sender.clone();
         let error_sender = self.error_channel.sender.clone();
 
-        
         let listen_loop = NSP::accept_loop(network_settings.clone(), new_connections, error_sender);
 
         trace!("Started listening");
@@ -160,7 +172,7 @@ impl<NSP: NetworkServerProvider> NetworkServer<NSP> {
             self.established_connections.clear();
             self.recv_message_map.clear();
 
-            while let Ok(_) = self.new_connections.receiver.try_recv(){}
+            while let Ok(_) = self.new_connections.receiver.try_recv() {}
         }
     }
 
@@ -179,27 +191,26 @@ impl<NSP: NetworkServerProvider> NetworkServer<NSP> {
 }
 
 pub(crate) fn handle_new_incoming_connections<NSP: NetworkServerProvider, RT: Runtime>(
-    mut server: ResMut<NetworkServer<NSP>>,
+    server: ResMut<NetworkServer<NSP>>,
     runtime: Res<RT>,
     network_settings: Res<NSP::NetworkSettings>,
     mut network_events: EventWriter<ServerNetworkEvent>,
 ) {
     while let Ok(new_conn) = server.new_connections.receiver.try_recv() {
+        let conn_id = ConnectionId {
+            uuid: Uuid::new_v4(),
+        };
 
-            let conn_id = ConnectionId {
-                uuid: Uuid::new_v4(),
-            };
+        let (read_half, write_half) = NSP::split(new_conn);
+        let recv_message_map = server.recv_message_map.clone();
+        let read_network_settings = network_settings.clone();
+        let write_network_settings = network_settings.clone();
+        let disconnected_connections = server.disconnected_connections.sender.clone();
 
-            let (read_half, write_half) = NSP::split(new_conn);
-            let recv_message_map = server.recv_message_map.clone();
-            let read_network_settings = network_settings.clone();
-            let write_network_settings = network_settings.clone();
-            let disconnected_connections = server.disconnected_connections.sender.clone();
+        let (outgoing_tx, outgoing_rx) = unbounded();
+        let (incoming_tx, incoming_rx) = unbounded();
 
-            let (outgoing_tx, outgoing_rx) = unbounded();
-            let (incoming_tx, mut incoming_rx) = unbounded();
-
-            server.established_connections.insert(
+        server.established_connections.insert(
                 conn_id,
                 Connection {
                     receive_task: Box::new(runtime.spawn(async move {
@@ -232,8 +243,7 @@ pub(crate) fn handle_new_incoming_connections<NSP: NetworkServerProvider, RT: Ru
                 },
             );
 
-            network_events.send(ServerNetworkEvent::Connected(conn_id));
-        
+        network_events.send(ServerNetworkEvent::Connected(conn_id));
     }
 
     while let Ok(disconnected_connection) = server.disconnected_connections.receiver.try_recv() {
@@ -253,11 +263,15 @@ pub trait AppNetworkServerMessage {
     /// - Add a new event type of [`NetworkData<T>`]
     /// - Register the type for transformation over the wire
     /// - Internal bookkeeping
-    fn listen_for_server_message<T: ServerMessage, NSP: NetworkServerProvider>(&mut self) -> &mut Self;
+    fn listen_for_server_message<T: ServerMessage, NSP: NetworkServerProvider>(
+        &mut self,
+    ) -> &mut Self;
 }
 
 impl AppNetworkServerMessage for App {
-    fn listen_for_server_message<T: ServerMessage, NSP: NetworkServerProvider>(&mut self) -> &mut Self {
+    fn listen_for_server_message<T: ServerMessage, NSP: NetworkServerProvider>(
+        &mut self,
+    ) -> &mut Self {
         let server = self.world.get_resource::<NetworkServer<NSP>>().expect("Could not find `NetworkServer`. Be sure to include the `ServerPlugin` before listening for server messages.");
 
         debug!("Registered a new ServerMessage: {}", T::NAME);
@@ -276,7 +290,6 @@ impl AppNetworkServerMessage for App {
 fn register_server_message<T, NSP: NetworkServerProvider>(
     net_res: ResMut<NetworkServer<NSP>>,
     mut events: EventWriter<NetworkData<T>>,
-
 ) where
     T: ServerMessage,
 {
@@ -285,9 +298,9 @@ fn register_server_message<T, NSP: NetworkServerProvider>(
         None => return,
     };
 
-    events.send_batch(
-        messages
-            .drain(..)
-            .filter_map(|(source, msg)| bincode::deserialize::<T>(&msg).ok().map(|inner| NetworkData{source, inner})),
-    );
+    events.send_batch(messages.drain(..).filter_map(|(source, msg)| {
+        bincode::deserialize::<T>(&msg)
+            .ok()
+            .map(|inner| NetworkData { source, inner })
+    }));
 }

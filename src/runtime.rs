@@ -3,8 +3,7 @@ mod bevy_runtime;
 use std::future::Future;
 
 /// A runtime abstraction allowing you to use any runtime for spicy
-pub trait Runtime: 'static + Send + Sync{
-
+pub trait Runtime: 'static + Send + Sync {
     /// Associated handle
     type JoinHandle: JoinHandle;
 
@@ -13,8 +12,7 @@ pub trait Runtime: 'static + Send + Sync{
 }
 
 /// A runtime abstraction allowing you to use any runtime with spicy
-pub trait JoinHandle: 'static + Send + Sync{
-
+pub trait JoinHandle: 'static + Send + Sync {
     /// Stop the task.
     fn abort(&mut self);
 }

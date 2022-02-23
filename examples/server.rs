@@ -1,12 +1,12 @@
 use bevy::app::ScheduleRunnerSettings;
 use bevy::prelude::*;
 use bevy_eventwork::{ConnectionId, NetworkData, NetworkServer, ServerNetworkEvent};
-use std::net::{SocketAddr, IpAddr};
+use std::net::{IpAddr, SocketAddr};
 use std::ops::Deref;
 use std::str::FromStr;
 use std::time::Duration;
 
-use bevy_eventwork::tcp::{TcpServerProvider, NetworkSettings, TcpClientProvider};
+use bevy_eventwork::tcp::{NetworkSettings, TcpServerProvider};
 
 mod shared;
 
@@ -17,15 +17,14 @@ fn main() {
     )));
     app.add_plugins(MinimalPlugins);
     app.add_plugin(bevy::log::LogPlugin::default());
-    app.insert_resource(
-        bevy::tasks::TaskPoolBuilder::new()
-            .num_threads(2)
-            .build()
-    );
+    app.insert_resource(bevy::tasks::TaskPoolBuilder::new().num_threads(2).build());
 
     // Before we can register the potential message types, we
     // need to add the plugin
-    app.add_plugin(bevy_eventwork::ServerPlugin::<TcpServerProvider, bevy::tasks::TaskPool>::default());
+    app.add_plugin(bevy_eventwork::ServerPlugin::<
+        TcpServerProvider,
+        bevy::tasks::TaskPool,
+    >::default());
 
     // A good way to ensure that you are not forgetting to register
     // any messages is to register them where they are defined!
@@ -34,7 +33,10 @@ fn main() {
     app.add_startup_system(setup_networking);
     app.add_system(handle_connection_events);
     app.add_system(handle_messages);
-    app.insert_resource(NetworkSettings::new((IpAddr::from_str("127.0.0.1").unwrap(), 8080)));
+    app.insert_resource(NetworkSettings::new((
+        IpAddr::from_str("127.0.0.1").unwrap(),
+        8080,
+    )));
 
     app.run();
 }
@@ -44,13 +46,13 @@ fn main() {
 fn setup_networking(
     mut net: ResMut<NetworkServer<TcpServerProvider>>,
     settings: Res<NetworkSettings>,
-    runtime: Res<bevy::tasks::TaskPool>
+    runtime: Res<bevy::tasks::TaskPool>,
 ) {
     let ip_address = "127.0.0.1".parse().expect("Could not parse ip address");
 
     info!("Address of the server: {}", ip_address);
 
-    let socket_address = SocketAddr::new(ip_address, 9999);
+    let _socket_address = SocketAddr::new(ip_address, 9999);
 
     match net.listen(runtime.deref(), &settings) {
         Ok(_) => (),

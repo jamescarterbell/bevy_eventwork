@@ -16,7 +16,7 @@ A simple networking plugin for Bevy designed to work with Bevy's event architect
 
 Using this plugin is meant to be straightforward and highly configurable. You have one server and multiple clients.
 You simply add either the `ClientPlugin` or the `ServerPlugin` to the respective bevy app, the runtime you wish to use,
-and the netowrking provider you wish to use.  Then, 
+and the netowrking provider you wish to use.  Then,
 register which kind of messages can be received through `listen_for_client_message` or `listen_for_server_message`
 (provided respectively by `AppNetworkClientMessage` and `AppNetworkServerMessage`), as well as which provider you want
 to handle these messages and you
@@ -134,7 +134,7 @@ fn handle_connection_events(
 ```
 As you can see, they are both quite similar, and provide everything a basic networked game needs.
 
-Currently, Bevy's [TaskPool] is the default runtime used by Eventwork. 
+Currently, Bevy's [TaskPool] is the default runtime used by Eventwork.
 */
 
 /// Contains all functionality for contenctin to a server, sending, and recieving messages with it.
@@ -150,9 +150,11 @@ mod runtime;
 use runtime::JoinHandle;
 pub use runtime::Runtime;
 
-use std::{net::{IpAddr, Ipv4Addr, SocketAddr}, marker::PhantomData, fmt::Debug};
+use std::{fmt::Debug, marker::PhantomData};
 
-use async_channel::{Sender, Receiver, unbounded};
+pub use async_channel;
+use async_channel::{unbounded, Receiver, Sender};
+pub use async_trait::async_trait;
 use bevy::{prelude::*, utils::Uuid};
 pub use client::{AppNetworkClientMessage, NetworkClient, NetworkClientProvider};
 use derive_more::{Deref, Display};
@@ -160,25 +162,10 @@ use error::NetworkError;
 pub use network_message::{ClientMessage, ServerMessage};
 use serde::{Deserialize, Serialize};
 pub use server::{AppNetworkServerMessage, NetworkServer, NetworkServerProvider};
-pub use async_trait::async_trait;
-pub use async_channel;
 
 #[cfg(feature = "tcp")]
 /// A default tcp provider to help get you started.
 pub mod tcp;
-
-struct SyncChannel<T> {
-    pub(crate) sender: Sender<T>,
-    pub(crate) receiver: Receiver<T>,
-}
-
-impl<T> SyncChannel<T> {
-    fn new() -> Self {
-        let (sender, receiver) = unbounded();
-
-        SyncChannel { sender, receiver }
-    }
-}
 
 struct AsyncChannel<T> {
     pub(crate) sender: Sender<T>,
@@ -216,9 +203,7 @@ impl ConnectionId {
     */
 
     pub(crate) fn server() -> Self {
-        Self {
-            uuid: Uuid::nil(),
-        }
+        Self { uuid: Uuid::nil() }
     }
 
     /// Check whether this [`ConnectionId`] is a server
@@ -308,7 +293,9 @@ impl Connection {
 #[derive(Default, Copy, Clone, Debug)]
 /// The plugin to add to your bevy [`App`](bevy::prelude::App) when you want
 /// to instantiate a server
-pub struct ServerPlugin<NSP: NetworkServerProvider, RT: Runtime = bevy::tasks::TaskPool>(PhantomData<(NSP, RT)>);
+pub struct ServerPlugin<NSP: NetworkServerProvider, RT: Runtime = bevy::tasks::TaskPool>(
+    PhantomData<(NSP, RT)>,
+);
 
 impl<NSP: NetworkServerProvider + Default, RT: Runtime> Plugin for ServerPlugin<NSP, RT> {
     fn build(&self, app: &mut App) {
@@ -324,7 +311,9 @@ impl<NSP: NetworkServerProvider + Default, RT: Runtime> Plugin for ServerPlugin<
 #[derive(Default, Copy, Clone, Debug)]
 /// The plugin to add to your bevy [`App`](bevy::prelude::App) when you want
 /// to instantiate a client
-pub struct ClientPlugin<NCP: NetworkClientProvider, RT: Runtime = bevy::tasks::TaskPool>(PhantomData<(NCP, RT)>);
+pub struct ClientPlugin<NCP: NetworkClientProvider, RT: Runtime = bevy::tasks::TaskPool>(
+    PhantomData<(NCP, RT)>,
+);
 
 impl<NCP: NetworkClientProvider + Default, RT: Runtime> Plugin for ClientPlugin<NCP, RT> {
     fn build(&self, app: &mut App) {

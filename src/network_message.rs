@@ -26,7 +26,7 @@ A marker trait to signal that this message should be sent *to* a server
 
 You can implement both [`ServerMessage`] and [`ClientMessage`]
 */
-pub trait ServerMessage: Serialize + DeserializeOwned + Send + Sync + 'static{
+pub trait ServerMessage: Serialize + DeserializeOwned + Send + Sync + 'static {
     /// A unique name to identify your message, this needs to be unique __across all included crates__
     ///
     /// A good combination is crate name + struct name
@@ -40,7 +40,7 @@ A marker trait to signal that this message should be sent *to* a client
 
 You can implement both [`ClientMessage`] and [`ServerMessage`]
 */
-pub trait ClientMessage: Serialize + DeserializeOwned + Send + Sync + 'static{
+pub trait ClientMessage: Serialize + DeserializeOwned + Send + Sync + 'static {
     /// A unique name to identify your message, this needs to be unique __across all included crates__
     ///
     /// A good combination is crate name + struct name

@@ -26,5 +26,4 @@ pub enum NetworkError {
     /// An error occured when trying to connect.
     #[error("An error occured when trying to connect: {0}")]
     Connection(std::io::Error),
-
 }

@@ -2,9 +2,9 @@
 
 use bevy::prelude::*;
 use bevy_eventwork::{ClientNetworkEvent, NetworkClient, NetworkData};
-use std::{net::{SocketAddr, IpAddr}, str::FromStr, ops::Deref};
+use std::{net::IpAddr, ops::Deref, str::FromStr};
 
-use bevy_eventwork::tcp::{TcpClientProvider, NetworkSettings};
+use bevy_eventwork::tcp::{NetworkSettings, TcpClientProvider};
 
 mod shared;
 
@@ -15,13 +15,12 @@ fn main() {
 
     // You need to add the `ClientPlugin` first before you can register
     // `ClientMessage`s
-    app.add_plugin(bevy_eventwork::ClientPlugin::<TcpClientProvider, bevy::tasks::TaskPool>::default());
-    
-    app.insert_resource(
-        bevy::tasks::TaskPoolBuilder::new()
-            .num_threads(2)
-            .build()
-    );
+    app.add_plugin(bevy_eventwork::ClientPlugin::<
+        TcpClientProvider,
+        bevy::tasks::TaskPool,
+    >::default());
+
+    app.insert_resource(bevy::tasks::TaskPoolBuilder::new().num_threads(2).build());
 
     // A good way to ensure that you are not forgetting to register
     // any messages is to register them where they are defined!
@@ -33,7 +32,10 @@ fn main() {
     app.add_system(handle_message_button.system());
     app.add_system(handle_incoming_messages.system());
     app.add_system(handle_network_events.system());
-    app.insert_resource(NetworkSettings::new((IpAddr::from_str("127.0.0.1").unwrap(), 8080)));
+    app.insert_resource(NetworkSettings::new((
+        IpAddr::from_str("127.0.0.1").unwrap(),
+        8080,
+    )));
 
     app.init_resource::<GlobalChatSettings>();
 
@@ -115,7 +117,6 @@ impl FromWorld for GlobalChatSettings {
         }
     }
 }
-
 
 enum ChatMessage {
     SystemMessage(SystemMessage),
@@ -207,7 +208,7 @@ fn handle_connect_button(
     >,
     mut text_query: Query<&mut Text>,
     mut messages: Query<&mut GameChatMessages>,
-    task_pool: Res<bevy::tasks::TaskPool>
+    task_pool: Res<bevy::tasks::TaskPool>,
 ) {
     let mut messages = if let Ok(messages) = messages.get_single_mut() {
         messages
@@ -224,10 +225,7 @@ fn handle_connect_button(
                 text.sections[0].value = String::from("Connecting...");
                 messages.add(SystemMessage::new("Connecting to server..."));
 
-                net.connect(
-                    task_pool.deref(),
-                    &settings
-                );
+                net.connect(task_pool.deref(), &settings);
             }
         }
     }
@@ -301,7 +299,7 @@ fn handle_chat_area(
 fn setup_ui(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    _materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn_bundle(UiCameraBundle::default());
 
