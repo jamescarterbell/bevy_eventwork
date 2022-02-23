@@ -15,6 +15,7 @@ Simply add either the server/client plugins, your chosen transport provider (a s
 - [Roadmap](#roadmap)
 - [Crates using `bevy_eventwork`](#crates-using-bevy_eventwork)
 - [Transport providers for`bevy_eventwork`](#transport-providers-for-bevy_eventwork)
+- [Runtimes for`bevy_eventwork`](#transport-providers-for-bevy_eventwork)
 - [Contributing](#contributing)
 
 
@@ -33,7 +34,7 @@ is more complete.)
 
 ### Quickstart
 
-1. Add `bevy_eventwork`, and `serde_derive` to your `Cargo.toml`
+1. Add `bevy_eventwork`, and `serde` to your `Cargo.toml`
 2. Create the messages you wish to exchange beetween a client and server, or vice-versa.
     - Implement Serialize and Deserialize from Serde on it
     - Implement `ServerMessage` when it is sent to the server from a client.
@@ -99,17 +100,28 @@ Currently only **Linux** and **Windows** are officially supported, I don't see w
 Roadmap
 -------
 
-Currently `bevy_eventwork` uses TCP only. This will change at some point, with individual messages being able to specify how they should be delivered. This change will be compatible, or with only minor changes necessary.
+* Message wide event pipelines
+    * Useful for mapping connection id to user provided ids
+* Message type mapping (
+    * Currently the message type is sent as a string with each method, it would be nice if you could just send a few bytes instead.
 
 
 Crates using `bevy_eventwork`
---------------------
+-----------------------------
 
 > Currently none, you can help by expanding this list. Just send a PR and add it to the table below!
 
 | Name | Version |
 |:----:|:-------:|
 |  -   |    -    |
+
+Transport providers for `bevy_eventwork`
+----------------------------------------
+
+
+| Name            | Version |
+|:---------------:|:-------:|
+|  eventwork_tcp  |   0.6   |
 
 Contributing
 ------------
