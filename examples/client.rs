@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_eventwork::{ClientNetworkEvent, NetworkClient, NetworkData};
 use std::{net::{SocketAddr, IpAddr}, str::FromStr, ops::Deref};
 
-use eventwork_tcp::{TcpClientProvider, NetworkSettings};
+use bevy_eventwork::tcp::{TcpClientProvider, NetworkSettings};
 
 mod shared;
 

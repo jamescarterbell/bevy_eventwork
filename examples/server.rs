@@ -6,7 +6,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 use std::time::Duration;
 
-use eventwork_tcp::{TcpServerProvider, NetworkSettings, TcpClientProvider};
+use bevy_eventwork::tcp::{TcpServerProvider, NetworkSettings, TcpClientProvider};
 
 mod shared;
 

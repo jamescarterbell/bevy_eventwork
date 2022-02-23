@@ -1,6 +1,6 @@
 [package]
 name = "bevy_eventwork"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["James <jamescarterbell@gmail.com>", "Neikos <neikos@neikos.email>"]
 edition = "2021"
 description = "Event based networking library for Bevy"
@@ -14,6 +14,10 @@ resolver = "2"
 
 [badges]
 maintenance = { status = "actively-developed" }
+
+[features]
+default = ["tcp"]
+tcp = []
 
 [[example]]
 name = "client"
@@ -33,12 +37,8 @@ serde = { version = "1.0.133", features = ["derive"] }
 thiserror = "1.0.24"
 async-channel = "1.6.1"
 async-trait = "0.1.52"
+async-net = "1.6.1"
+futures-lite = "1.12.0"
 
 [dev-dependencies]
 bevy = { version = "0.6" }
-eventwork_tcp = {path = "eventwork_tcp"}
-
-[workspace]
-members = [
-    "eventwork_tcp",
-]

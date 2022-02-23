@@ -1,7 +1,6 @@
 #![deny(
     missing_docs,
     missing_debug_implementations,
-    missing_copy_implementations,
     trivial_casts,
     trivial_numeric_casts,
     unsafe_code,
@@ -163,6 +162,10 @@ use serde::{Deserialize, Serialize};
 pub use server::{AppNetworkServerMessage, NetworkServer, NetworkServerProvider};
 pub use async_trait::async_trait;
 pub use async_channel;
+
+#[cfg(feature = "tcp")]
+/// A default tcp provider to help get you started.
+pub mod tcp;
 
 struct SyncChannel<T> {
     pub(crate) sender: Sender<T>,

@@ -121,7 +121,7 @@ Transport providers for `bevy_eventwork`
 
 | Name            | Version |
 |:---------------:|:-------:|
-|  eventwork_tcp  |   0.6   |
+|  eventwork_tcp (included)  |   0.6   |
 
 Contributing
 ------------
