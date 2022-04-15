@@ -1,4 +1,4 @@
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Serialize, Deserialize};
 
 /// Any type that should be sent over the wire has to implement [`NetworkMessage`].
 ///

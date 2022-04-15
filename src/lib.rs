@@ -145,6 +145,7 @@ mod network_message;
 
 /// Contains all functionality for starting a server, sending, and recieving messages from clients.
 pub mod server;
+pub mod request_response;
 
 mod runtime;
 use runtime::JoinHandle;
