@@ -1,72 +1,18 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use async_channel::{unbounded, Receiver, Sender};
+use async_channel::unbounded;
 use bevy::prelude::*;
 use dashmap::DashMap;
-
-use async_trait::async_trait;
 
 use crate::{
     error::NetworkError,
     network_message::{ClientMessage, ServerMessage},
-    runtime::JoinHandle,
     AsyncChannel, ClientNetworkEvent, Connection, ConnectionId, NetworkData, NetworkPacket,
     Runtime,
 };
 
-/// A trait used by [`NetworkClient`] to drive a client, this is responsible
-/// for generating the futures that carryout the underlying client logic.
-#[async_trait]
-pub trait NetworkClientProvider: 'static + Send + Sync {
-    /// This is to configure particular protocols
-    type NetworkSettings: Send + Sync + Clone;
+use super::{NetworkClient, NetworkClientProvider};
 
-    /// The type that acts as a combined sender and reciever for a client.
-    /// This type needs to be able to be split.
-    type Socket: Send;
-
-    /// The read half of the given socket type.
-    type ReadHalf: Send;
-
-    /// The write half of the given socket type.
-    type WriteHalf: Send;
-
-    /// Connect to the server, this will technically live as a long running task, but it can complete.
-    async fn connect_task(
-        network_settings: Self::NetworkSettings,
-        new_connections: Sender<Self::Socket>,
-        errors: Sender<ClientNetworkEvent>,
-    );
-
-    /// Recieves messages from the server.
-    async fn recv_loop(
-        read_half: Self::ReadHalf,
-        messages: Sender<NetworkPacket>,
-        settings: Self::NetworkSettings,
-    );
-
-    /// Writes messages to the server.
-    async fn send_loop(
-        write_half: Self::WriteHalf,
-        messages: Receiver<NetworkPacket>,
-        settings: Self::NetworkSettings,
-    );
-
-    /// Split the socket into a read and write half, so that the two actions
-    /// can be handled concurrently.
-    fn split(combined: Self::Socket) -> (Self::ReadHalf, Self::WriteHalf);
-}
-
-/// An instance of a [`NetworkClient`] is used to connect to a remote server
-/// using [`NetworkClient::connect`]
-pub struct NetworkClient<NCP: NetworkClientProvider> {
-    server_connection: Option<Connection>,
-    recv_message_map: Arc<DashMap<&'static str, Vec<Vec<u8>>>>,
-    network_events: AsyncChannel<ClientNetworkEvent>,
-    connection_events: AsyncChannel<NCP::Socket>,
-    connection_task: Option<Box<dyn JoinHandle>>,
-    provider: PhantomData<NCP>,
-}
 
 impl<NCP: NetworkClientProvider> std::fmt::Debug for NetworkClient<NCP> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -194,7 +140,7 @@ impl AppNetworkClientMessage for App {
     }
 }
 
-fn register_client_message<T, NCP: NetworkClientProvider>(
+pub(crate) fn register_client_message<T, NCP: NetworkClientProvider>(
     net_res: ResMut<NetworkClient<NCP>>,
     mut events: EventWriter<NetworkData<T>>,
 ) where

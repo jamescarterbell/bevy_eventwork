@@ -1,7 +1,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use async_channel::{unbounded, Receiver, Sender};
-use async_trait::async_trait;
+use async_channel::unbounded;
 use bevy::{prelude::*, utils::Uuid};
 use dashmap::DashMap;
 
@@ -13,60 +12,8 @@ use crate::{
     ServerNetworkEvent,
 };
 
-/// A trait used by [`NetworkServer`] to drive a server, this is responsible
-/// for generating the futures that carryout the underlying server logic.
-#[async_trait]
-pub trait NetworkServerProvider: 'static + Send + Sync {
-    /// This is to configure particular protocols
-    type NetworkSettings: Send + Sync + Clone;
+use super::{NetworkServerProvider, NetworkServer};
 
-    /// The type that acts as a combined sender and reciever for a client.
-    /// This type needs to be able to be split.
-    type Socket: Send;
-
-    /// The read half of the given socket type.
-    type ReadHalf: Send;
-
-    /// The write half of the given socket type.
-    type WriteHalf: Send;
-
-    /// This will be spawned as a background operation to continuously add new connections.
-    async fn accept_loop(
-        network_settings: Self::NetworkSettings,
-        new_connections: Sender<Self::Socket>,
-        errors: Sender<NetworkError>,
-    );
-
-    /// Recieves messages from the client, forwards them to Spicy via a sender.
-    async fn recv_loop(
-        read_half: Self::ReadHalf,
-        messages: Sender<NetworkPacket>,
-        settings: Self::NetworkSettings,
-    );
-
-    /// Sends messages to the client, receives packages from Spicy via receiver.
-    async fn send_loop(
-        write_half: Self::WriteHalf,
-        messages: Receiver<NetworkPacket>,
-        settings: Self::NetworkSettings,
-    );
-
-    /// Split the socket into a read and write half, so that the two actions
-    /// can be handled concurrently.
-    fn split(combined: Self::Socket) -> (Self::ReadHalf, Self::WriteHalf);
-}
-
-/// An instance of a [`NetworkServer`] is used to listen for new client connections
-/// using [`NetworkServer::listen`]
-pub struct NetworkServer<NSP: NetworkServerProvider> {
-    recv_message_map: Arc<DashMap<&'static str, Vec<(ConnectionId, Vec<u8>)>>>,
-    established_connections: Arc<DashMap<ConnectionId, Connection>>,
-    new_connections: AsyncChannel<NSP::Socket>,
-    disconnected_connections: AsyncChannel<ConnectionId>,
-    error_channel: AsyncChannel<NetworkError>,
-    server_handle: Option<Box<dyn JoinHandle>>,
-    provider: PhantomData<NSP>,
-}
 
 impl<NSP: NetworkServerProvider> std::fmt::Debug for NetworkServer<NSP> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -287,7 +234,7 @@ impl AppNetworkServerMessage for App {
     }
 }
 
-fn register_server_message<T, NSP: NetworkServerProvider>(
+pub(crate) fn register_server_message<T, NSP: NetworkServerProvider>(
     net_res: ResMut<NetworkServer<NSP>>,
     mut events: EventWriter<NetworkData<T>>,
 ) where

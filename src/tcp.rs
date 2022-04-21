@@ -3,9 +3,8 @@ use std::net::SocketAddr;
 use crate::{
     async_channel::{Receiver, Sender},
     async_trait,
-    client::NetworkClientProvider,
+    managers::{NetworkClientProvider, NetworkServerProvider},
     error::NetworkError,
-    server::NetworkServerProvider,
     ClientNetworkEvent, NetworkPacket,
 };
 use async_net::{TcpListener, TcpStream};

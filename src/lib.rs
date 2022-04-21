@@ -3,7 +3,6 @@
     missing_debug_implementations,
     trivial_casts,
     trivial_numeric_casts,
-    unsafe_code,
     unstable_features,
     unused_import_braces,
     unused_qualifications,
@@ -137,17 +136,15 @@ As you can see, they are both quite similar, and provide everything a basic netw
 Currently, Bevy's [TaskPool] is the default runtime used by Eventwork.
 */
 
-/// Contains all functionality for contenctin to a server, sending, and recieving messages with it.
-pub mod client;
 /// Contains error enum.
 pub mod error;
 mod network_message;
 
-/// Contains all functionality for starting a server, sending, and recieving messages from clients.
-pub mod server;
-pub mod request_response;
+/// Contains all functionality for starting a server or client, sending, and recieving messages from clients.
+pub mod managers;
 
 mod runtime;
+use managers::{NetworkServerProvider, NetworkClientProvider};
 use runtime::JoinHandle;
 pub use runtime::Runtime;
 
@@ -157,12 +154,10 @@ pub use async_channel;
 use async_channel::{unbounded, Receiver, Sender};
 pub use async_trait::async_trait;
 use bevy::{prelude::*, utils::Uuid};
-pub use client::{AppNetworkClientMessage, NetworkClient, NetworkClientProvider};
 use derive_more::{Deref, Display};
 use error::NetworkError;
 pub use network_message::{ClientMessage, ServerMessage};
 use serde::{Deserialize, Serialize};
-pub use server::{AppNetworkServerMessage, NetworkServer, NetworkServerProvider};
 
 #[cfg(feature = "tcp")]
 /// A default tcp provider to help get you started.
@@ -300,11 +295,11 @@ pub struct ServerPlugin<NSP: NetworkServerProvider, RT: Runtime = bevy::tasks::T
 
 impl<NSP: NetworkServerProvider + Default, RT: Runtime> Plugin for ServerPlugin<NSP, RT> {
     fn build(&self, app: &mut App) {
-        app.insert_resource(server::NetworkServer::new(NSP::default()));
+        app.insert_resource(managers::NetworkServer::new(NSP::default()));
         app.add_event::<ServerNetworkEvent>();
         app.add_system_to_stage(
             CoreStage::PreUpdate,
-            server::handle_new_incoming_connections::<NSP, RT>,
+            managers::server::handle_new_incoming_connections::<NSP, RT>,
         );
     }
 }
@@ -318,15 +313,15 @@ pub struct ClientPlugin<NCP: NetworkClientProvider, RT: Runtime = bevy::tasks::T
 
 impl<NCP: NetworkClientProvider + Default, RT: Runtime> Plugin for ClientPlugin<NCP, RT> {
     fn build(&self, app: &mut App) {
-        app.insert_resource(client::NetworkClient::new(NCP::default()));
+        app.insert_resource(managers::NetworkClient::new(NCP::default()));
         app.add_event::<ClientNetworkEvent>();
         app.add_system_to_stage(
             CoreStage::PreUpdate,
-            client::send_client_network_events::<NCP, RT>,
+            managers::client::send_client_network_events::<NCP, RT>,
         );
         app.add_system_to_stage(
             CoreStage::PreUpdate,
-            client::handle_connection_event::<NCP, RT>,
+            managers::client::handle_connection_event::<NCP, RT>,
         );
     }
 }
