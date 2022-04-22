@@ -13,37 +13,36 @@
 /*!
 A simple networking plugin for Bevy designed to work with Bevy's event architecture.
 
-Using this plugin is meant to be straightforward and highly configurable. You have one server and multiple clients.
-You simply add either the `ClientPlugin` or the `ServerPlugin` to the respective bevy app, the runtime you wish to use,
-and the netowrking provider you wish to use.  Then,
-register which kind of messages can be received through `listen_for_client_message` or `listen_for_server_message`
-(provided respectively by `AppNetworkClientMessage` and `AppNetworkServerMessage`), as well as which provider you want
+Using this plugin is meant to be straightforward and highly configurable.
+You simply add either the `EventworkPlugin` to the respective bevy app, the runtime you wish to use,
+and the networking provider you wish to use.  Then,
+register which kind of messages can be received through [`managers::network::AppNetworkMessage::listen_for_message`], as well as which provider you want
 to handle these messages and you
-can start receiving packets as events of `NetworkData<T>`.
+can start receiving packets as events of [`NetworkData<T>`].
 
 ## Example Client
 ```rust,no_run
 use bevy::prelude::*;
-use bevy_eventwork::{ClientPlugin, NetworkData, NetworkMessage, ServerMessage, ClientNetworkEvent, AppNetworkServerMessage};
+use bevy_eventwork::{EventworkPlugin, NetworkData, NetworkMessage, NetworkEvent, AppNetworkMessage, tcp::TcpProvider};
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
 struct WorldUpdate;
 
-#[typetag::serde]
-impl NetworkMessage for WorldUpdate {}
-
-impl ServerMessage for WorldUpdate {
+impl NetworkMessage for WorldUpdate {
     const NAME: &'static str = "example:WorldUpdate";
 }
 
 fn main() {
-     let mut app = App::build();
-     app.add_plugin(ClientPlugin);
+     let mut app = App::new();
+     app.add_plugin(EventworkPlugin::<
+        TcpProvider,
+        bevy::tasks::TaskPool,
+    >::default());
      // We are receiving this from the server, so we need to listen for it
-     app.listen_for_server_message::<WorldUpdate>();
-     app.add_system(handle_world_updates.system());
-     app.add_system(handle_connection_events.system());
+     app.listen_for_message::<WorldUpdate, TcpProvider>();
+     app.add_system(handle_world_updates);
+     app.add_system(handle_connection_events);
 }
 
 fn handle_world_updates(
@@ -54,10 +53,10 @@ fn handle_world_updates(
     }
 }
 
-fn handle_connection_events(mut network_events: EventReader<ClientNetworkEvent>,) {
+fn handle_connection_events(mut network_events: EventReader<NetworkEvent>,) {
     for event in network_events.iter() {
         match event {
-            &ClientNetworkEvent::Connected => info!("Connected to server!"),
+            &NetworkEvent::Connected(_) => info!("Connected to server!"),
             _ => (),
         }
     }
@@ -68,30 +67,33 @@ fn handle_connection_events(mut network_events: EventReader<ClientNetworkEvent>,
 ## Example Server
 ```rust,no_run
 use bevy::prelude::*;
-use bevy_eventwork::{ServerPlugin, NetworkData, NetworkMessage, NetworkServer, ServerMessage, ClientMessage, ServerNetworkEvent, AppNetworkClientMessage};
+use bevy_eventwork::{
+    EventworkPlugin, NetworkData, NetworkMessage, Network, NetworkEvent, AppNetworkMessage,
+    tcp::TcpProvider,
+};
 
 use serde::{Serialize, Deserialize};
+
 #[derive(Serialize, Deserialize)]
 struct UserInput;
 
-#[typetag::serde]
-impl NetworkMessage for UserInput {}
-
-impl ClientMessage for UserInput {
+impl NetworkMessage for UserInput {
     const NAME: &'static str = "example:UserInput";
 }
 
 fn main() {
-     let mut app = App::build();
-     app.add_plugin(ServerPlugin);
+     let mut app = App::new();
+     app.add_plugin(EventworkPlugin::<
+        TcpProvider,
+        bevy::tasks::TaskPool,
+    >::default());
      // We are receiving this from a client, so we need to listen for it!
-     app.listen_for_client_message::<UserInput>();
-     app.add_system(handle_world_updates.system());
-     app.add_system(handle_connection_events.system());
+     app.listen_for_message::<UserInput, TcpProvider>();
+     app.add_system(handle_world_updates);
+     app.add_system(handle_connection_events);
 }
 
 fn handle_world_updates(
-    net: Res<NetworkServer>,
     mut chunk_updates: EventReader<NetworkData<UserInput>>,
 ) {
     for chunk in chunk_updates.iter() {
@@ -102,27 +104,18 @@ fn handle_world_updates(
 #[derive(Serialize, Deserialize)]
 struct PlayerUpdate;
 
-#[typetag::serde]
-impl NetworkMessage for PlayerUpdate {}
-
-impl ClientMessage for PlayerUpdate {
+impl NetworkMessage for PlayerUpdate {
     const NAME: &'static str = "example:PlayerUpdate";
 }
 
-impl PlayerUpdate {
-    fn new() -> PlayerUpdate {
-        Self
-    }
-}
-
 fn handle_connection_events(
-    net: Res<NetworkServer>,
-    mut network_events: EventReader<ServerNetworkEvent>,
+    net: Res<Network<TcpProvider>>,
+    mut network_events: EventReader<NetworkEvent>,
 ) {
     for event in network_events.iter() {
         match event {
-            &ServerNetworkEvent::Connected(conn_id) => {
-                net.send_message(conn_id, PlayerUpdate::new());
+            &NetworkEvent::Connected(conn_id) => {
+                net.send_message(conn_id, PlayerUpdate);
                 info!("New client connected: {:?}", conn_id);
             }
             _ => (),

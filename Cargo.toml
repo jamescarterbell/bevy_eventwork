@@ -1,6 +1,6 @@
 [package]
 name = "bevy_eventwork"
-version = "0.7.0"
+version = "0.7.1"
 authors = ["James <jamescarterbell@gmail.com>", "Neikos <neikos@neikos.email>"]
 edition = "2021"
 description = "Event based networking library for Bevy"
@@ -17,7 +17,7 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["tcp"]
-tcp = []
+tcp = ["async-net"]
 
 [[example]]
 name = "client"
@@ -35,9 +35,8 @@ dashmap = "4.0.2"
 serde = { version = "1.0.133", features = ["derive"] }
 async-channel = "1.6.1"
 async-trait = "0.1.52"
-async-net = "1.6.1"
+async-net = {version = "1.6.1", optional = true}
 futures-lite = "1.12.0"
-either = "1.6.1"
 
 [dev-dependencies]
 bevy = "> 0.6"

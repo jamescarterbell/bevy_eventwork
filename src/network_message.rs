@@ -4,7 +4,7 @@ use serde::{de::DeserializeOwned, Serialize};
 ///
 /// ## Example
 /// ```rust
-/// use bevy_spicy_networking::NetworkMessage;
+/// use bevy_eventwork::NetworkMessage;
 /// use serde::{Serialize, Deserialize};
 ///
 /// #[derive(Serialize, Deserialize)]
@@ -13,19 +13,12 @@ use serde::{de::DeserializeOwned, Serialize};
 ///     position: (u32, u32, u32)
 /// }
 ///
-/// #[typetag::serde]
-/// impl NetworkMessage for PlayerInformation {}
+/// impl NetworkMessage for PlayerInformation {
+///     const NAME: &'static str = "PlayerInfo";
+/// }
 /// ```
-/// You will also have to mark it with either [`ServerMessage`] or [`ClientMessage`] (or both)
-/// to signal which direction this message can be sent.
 
-/**
-A marker trait to signal that this message should be sent *to* a server
-
-## Note
-
-You can implement both [`ServerMessage`] and [`ClientMessage`]
-*/
+/// Marks a type as an eventwork message
 pub trait NetworkMessage: Serialize + DeserializeOwned + Send + Sync + 'static {
     /// A unique name to identify your message, this needs to be unique __across all included crates__
     ///

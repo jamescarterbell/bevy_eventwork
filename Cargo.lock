@@ -413,7 +413,7 @@ dependencies = [
 
 [[package]]
 name = "bevy_eventwork"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "async-channel",
  "async-net",
@@ -421,7 +421,6 @@ dependencies = [
  "bevy",
  "bincode",
  "dashmap",
- "either",
  "futures-lite",
  "serde",
 ]
@@ -1343,12 +1342,6 @@ name = "downcast-rs"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
-
-[[package]]
-name = "either"
-version = "1.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "env_logger"
