@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 
+use async_net::{Ipv4Addr, SocketAddr};
 use bevy::prelude::*;
 use bevy_eventwork::{NetworkEvent, Network, NetworkData, ConnectionId};
 use std::{net::IpAddr, ops::Deref, str::FromStr};
@@ -26,12 +27,12 @@ fn main() {
     // any messages is to register them where they are defined!
     shared::client_register_network_messages(&mut app);
 
-    app.add_startup_system(setup_ui.system());
+    app.add_startup_system(setup_ui);
 
-    app.add_system(handle_connect_button.system());
-    app.add_system(handle_message_button.system());
-    app.add_system(handle_incoming_messages.system());
-    app.add_system(handle_network_events.system());
+    app.add_system(handle_connect_button);
+    app.add_system(handle_message_button);
+    app.add_system(handle_incoming_messages);
+    app.add_system(handle_network_events);
     app.insert_resource(NetworkSettings::new((
         IpAddr::from_str("127.0.0.1").unwrap(),
         8080,
@@ -219,13 +220,16 @@ fn handle_connect_button(
     for (interaction, children) in interaction_query.iter() {
         let mut text = text_query.get_mut(children[0]).unwrap();
         if let Interaction::Clicked = interaction {
-            if net.is_connected() {
+            if net.has_connections() {
                 net.disconnect(ConnectionId{id: 0});
             } else {
                 text.sections[0].value = String::from("Connecting...");
                 messages.add(SystemMessage::new("Connecting to server..."));
 
-                net.connect(task_pool.deref(), &settings);
+                net.connect(
+                    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
+                    task_pool.deref(), 
+                    &settings);
             }
         }
     }

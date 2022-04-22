@@ -6,7 +6,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 use std::time::Duration;
 
-use bevy_eventwork::tcp::{NetworkSettings, TcpServerProvider};
+use bevy_eventwork::tcp::{NetworkSettings, TcpProvider};
 
 mod shared;
 
@@ -22,7 +22,7 @@ fn main() {
     // Before we can register the potential message types, we
     // need to add the plugin
     app.add_plugin(bevy_eventwork::ServerPlugin::<
-        TcpServerProvider,
+        TcpProvider,
         bevy::tasks::TaskPool,
     >::default());
 
@@ -44,7 +44,7 @@ fn main() {
 // On the server side, you need to setup networking. You do not need to do so at startup, and can start listening
 // at any time.
 fn setup_networking(
-    mut net: ResMut<NetworkServer<TcpServerProvider>>,
+    mut net: ResMut<NetworkServer<TcpProvider>>,
     settings: Res<NetworkSettings>,
     runtime: Res<bevy::tasks::TaskPool>,
 ) {
@@ -70,7 +70,7 @@ struct Player(ConnectionId);
 
 fn handle_connection_events(
     mut commands: Commands,
-    net: Res<NetworkServer<TcpServerProvider>>,
+    net: Res<NetworkServer<TcpProvider>>,
     mut network_events: EventReader<ServerNetworkEvent>,
 ) {
     for event in network_events.iter() {
@@ -90,7 +90,7 @@ fn handle_connection_events(
 // Receiving a new message is as simple as listening for events of `NetworkData<T>`
 fn handle_messages(
     mut new_messages: EventReader<NetworkData<shared::UserChatMessage>>,
-    net: Res<NetworkServer<TcpServerProvider>>,
+    net: Res<NetworkServer<TcpProvider>>,
 ) {
     for message in new_messages.iter() {
         let user = message.source();

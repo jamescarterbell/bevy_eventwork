@@ -70,25 +70,9 @@ impl NetworkProvider for TcpProvider {
         connect_info: Self::ConnectInfo,
         network_settings: Self::NetworkSettings,
         new_connections: Sender<Self::Socket>,
-        errors: Sender<NetworkEvent>,
-    ) {
+    ) -> Result<(), NetworkError> {
         info!("Beginning connection");
-        let stream = match TcpStream::connect(connect_info).await {
-            Ok(stream) => stream,
-            Err(error) => {
-                match errors
-                    .send(NetworkEvent::Error(NetworkError::Connection(error)))
-                    .await
-                {
-                    Ok(_) => (),
-                    Err(err) => {
-                        error!("Could not send error event: {}", err);
-                    }
-                }
-
-                return;
-            }
-        };
+        let stream = TcpStream::connect(connect_info).await.map_err(|e| NetworkError::Connection(e))?;
 
         info!("Connected!");
 
@@ -96,14 +80,13 @@ impl NetworkProvider for TcpProvider {
             .peer_addr()
             .expect("Could not fetch peer_addr of existing stream");
 
-        match new_connections.send(stream).await {
-            Ok(_) => (),
-            Err(err) => {
-                error!("Could not initiate connection: {}", err);
-            }
-        }
+        new_connections
+            .send(stream)
+            .await
+            .expect("Network dropped!");
 
         debug!("Connected to: {:?}", addr);
+        return Ok(());
     }
 
     async fn recv_loop(

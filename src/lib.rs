@@ -142,14 +142,14 @@ mod network_message;
 
 /// Contains all functionality for starting a server or client, sending, and recieving messages from clients.
 pub mod managers;
-pub use managers::Network;
+pub use managers::{Network, network::AppNetworkMessage};
 
 mod runtime;
 use managers::NetworkProvider;
 use runtime::JoinHandle;
 pub use runtime::Runtime;
 
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::{Debug, Display}, marker::PhantomData};
 
 pub use async_channel;
 use async_channel::{unbounded, Receiver, Sender};
@@ -184,7 +184,14 @@ impl<T> AsyncChannel<T> {
 /// or another. In most client/server applications this is not required as there
 /// is no ambiguity.
 pub struct ConnectionId {
-    id: u32
+    /// The key of the connection.
+    pub id: u32
+}
+
+impl Display for ConnectionId{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("Connection with ID={0}", self.id))
+    }
 }
 
 #[derive(Serialize, Deserialize)]
