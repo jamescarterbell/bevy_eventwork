@@ -1,6 +1,7 @@
+use async_net::Ipv4Addr;
 use bevy::app::ScheduleRunnerSettings;
 use bevy::prelude::*;
-use bevy_eventwork::{ConnectionId, NetworkData, NetworkServer, ServerNetworkEvent};
+use bevy_eventwork::{ConnectionId, NetworkData, Network, NetworkEvent};
 use std::net::{IpAddr, SocketAddr};
 use std::ops::Deref;
 use std::str::FromStr;
@@ -21,7 +22,7 @@ fn main() {
 
     // Before we can register the potential message types, we
     // need to add the plugin
-    app.add_plugin(bevy_eventwork::ServerPlugin::<
+    app.add_plugin(bevy_eventwork::EventworkPlugin::<
         TcpProvider,
         bevy::tasks::TaskPool,
     >::default());
@@ -44,7 +45,7 @@ fn main() {
 // On the server side, you need to setup networking. You do not need to do so at startup, and can start listening
 // at any time.
 fn setup_networking(
-    mut net: ResMut<NetworkServer<TcpProvider>>,
+    mut net: ResMut<Network<TcpProvider>>,
     settings: Res<NetworkSettings>,
     runtime: Res<bevy::tasks::TaskPool>,
 ) {
@@ -54,7 +55,7 @@ fn setup_networking(
 
     let _socket_address = SocketAddr::new(ip_address, 9999);
 
-    match net.listen(runtime.deref(), &settings) {
+    match net.listen(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),runtime.deref(), &settings) {
         Ok(_) => (),
         Err(err) => {
             error!("Could not start listening: {}", err);
@@ -70,11 +71,11 @@ struct Player(ConnectionId);
 
 fn handle_connection_events(
     mut commands: Commands,
-    net: Res<NetworkServer<TcpProvider>>,
-    mut network_events: EventReader<ServerNetworkEvent>,
+    net: Res<Network<TcpProvider>>,
+    mut network_events: EventReader<NetworkEvent>,
 ) {
     for event in network_events.iter() {
-        if let ServerNetworkEvent::Connected(conn_id) = event {
+        if let NetworkEvent::Connected(conn_id) = event {
             commands.spawn_bundle((Player(*conn_id),));
 
             // Broadcasting sends the message to all connected players! (Including the just connected one in this case)
@@ -90,7 +91,7 @@ fn handle_connection_events(
 // Receiving a new message is as simple as listening for events of `NetworkData<T>`
 fn handle_messages(
     mut new_messages: EventReader<NetworkData<shared::UserChatMessage>>,
-    net: Res<NetworkServer<TcpProvider>>,
+    net: Res<Network<TcpProvider>>,
 ) {
     for message in new_messages.iter() {
         let user = message.source();
