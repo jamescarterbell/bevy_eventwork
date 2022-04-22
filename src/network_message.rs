@@ -1,4 +1,4 @@
-use serde::{de::DeserializeOwned, Serialize, Deserialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 /// Any type that should be sent over the wire has to implement [`NetworkMessage`].
 ///
@@ -26,24 +26,9 @@ A marker trait to signal that this message should be sent *to* a server
 
 You can implement both [`ServerMessage`] and [`ClientMessage`]
 */
-pub trait ServerMessage: Serialize + DeserializeOwned + Send + Sync + 'static {
+pub trait NetworkMessage: Serialize + DeserializeOwned + Send + Sync + 'static {
     /// A unique name to identify your message, this needs to be unique __across all included crates__
     ///
-    /// A good combination is crate name + struct name.
-    const NAME: &'static str;
-}
-
-/**
-A marker trait to signal that this message should be sent *to* a client
-
-## Note
-
-You can implement both [`ClientMessage`] and [`ServerMessage`]
-*/
-pub trait ClientMessage: Serialize + DeserializeOwned + Send + Sync + 'static {
-    /// A unique name to identify your message, this needs to be unique __across all included crates__
-    ///
-    /// A good combination is crate name + struct name.
     /// A good combination is crate name + struct name.
     const NAME: &'static str;
 }

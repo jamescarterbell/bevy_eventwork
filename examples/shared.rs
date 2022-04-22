@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_eventwork::tcp::{TcpClientProvider, TcpServerProvider};
+use bevy_eventwork::tcp::{TcpClientProvider, TcpProvider};
 use serde::{Deserialize, Serialize};
 
 use bevy_eventwork::{ClientMessage, ServerMessage};
@@ -50,5 +50,5 @@ pub fn server_register_network_messages(app: &mut App) {
 
     // The server registers messages that arrives from a client, so that
     // it is prepared to handle them. Otherwise, an error occurs.
-    app.listen_for_server_message::<UserChatMessage, TcpServerProvider>();
+    app.listen_for_server_message::<UserChatMessage, TcpProvider>();
 }

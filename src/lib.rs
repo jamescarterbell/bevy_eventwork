@@ -144,7 +144,7 @@ mod network_message;
 pub mod managers;
 
 mod runtime;
-use managers::{NetworkServerProvider, NetworkClientProvider};
+use managers::NetworkProvider;
 use runtime::JoinHandle;
 pub use runtime::Runtime;
 
@@ -153,11 +153,11 @@ use std::{fmt::Debug, marker::PhantomData};
 pub use async_channel;
 use async_channel::{unbounded, Receiver, Sender};
 pub use async_trait::async_trait;
-use bevy::{prelude::*, utils::Uuid};
-use derive_more::{Deref, Display};
+use bevy::prelude::*;
 use error::NetworkError;
-pub use network_message::{ClientMessage, ServerMessage};
+pub use network_message::NetworkMessage;
 use serde::{Deserialize, Serialize};
+use std::ops::Deref;
 
 #[cfg(feature = "tcp")]
 /// A default tcp provider to help get you started.
@@ -176,36 +176,14 @@ impl<T> AsyncChannel<T> {
     }
 }
 
-#[derive(Hash, PartialEq, Eq, Clone, Copy, Display, Debug)]
-#[display(fmt = "Connection with ID={}", /*addr,*/ uuid)]
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 /// A [`ConnectionId`] denotes a single connection
 ///
 /// Use [`ConnectionId::is_server`] whether it is a connection to a server
 /// or another. In most client/server applications this is not required as there
 /// is no ambiguity.
 pub struct ConnectionId {
-    uuid: Uuid,
-    //addr: SocketAddr,
-}
-
-impl ConnectionId {
-    /// Get the address associated to this connection id
-    ///
-    /// This contains the IP/Port information
-    /*
-    pub fn address(&self) -> SocketAddr {
-        self.addr
-    }
-    */
-
-    pub(crate) fn server() -> Self {
-        Self { uuid: Uuid::nil() }
-    }
-
-    /// Check whether this [`ConnectionId`] is a server
-    pub fn is_server(&self) -> bool {
-        self.uuid == Uuid::nil()
-    }
+    id: u32
 }
 
 #[derive(Serialize, Deserialize)]
@@ -245,14 +223,21 @@ pub enum ClientNetworkEvent {
     Error(NetworkError),
 }
 
-#[derive(Debug, Deref)]
+#[derive(Debug)]
 /// [`NetworkData`] is what is sent over the bevy event system
 ///
 /// Please check the root documentation how to up everything
 pub struct NetworkData<T> {
     source: ConnectionId,
-    #[deref]
     inner: T,
+}
+
+impl<T> Deref for NetworkData<T>{
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl<T> NetworkData<T> {
@@ -261,8 +246,8 @@ impl<T> NetworkData<T> {
     }
 
     /// The source of this network data
-    pub fn source(&self) -> ConnectionId {
-        self.source
+    pub fn source(&self) -> &ConnectionId {
+        &self.source
     }
 
     /// Get the inner data out of it
@@ -271,8 +256,6 @@ impl<T> NetworkData<T> {
     }
 }
 
-#[derive(Display)]
-#[display(fmt = "Server connection")]
 struct Connection {
     receive_task: Box<dyn JoinHandle>,
     map_receive_task: Box<dyn JoinHandle>,
@@ -289,39 +272,17 @@ impl Connection {
 #[derive(Default, Copy, Clone, Debug)]
 /// The plugin to add to your bevy [`App`](bevy::prelude::App) when you want
 /// to instantiate a server
-pub struct ServerPlugin<NSP: NetworkServerProvider, RT: Runtime = bevy::tasks::TaskPool>(
-    PhantomData<(NSP, RT)>,
+pub struct EventworkPlugin<NP: NetworkProvider, RT: Runtime = bevy::tasks::TaskPool>(
+    PhantomData<(NP, RT)>,
 );
 
-impl<NSP: NetworkServerProvider + Default, RT: Runtime> Plugin for ServerPlugin<NSP, RT> {
+impl<NP: NetworkProvider + Default, RT: Runtime> Plugin for EventworkPlugin<NP, RT> {
     fn build(&self, app: &mut App) {
-        app.insert_resource(managers::NetworkServer::new(NSP::default()));
+        app.insert_resource(managers::Network::new(NP::default()));
         app.add_event::<ServerNetworkEvent>();
         app.add_system_to_stage(
             CoreStage::PreUpdate,
-            managers::server::handle_new_incoming_connections::<NSP, RT>,
-        );
-    }
-}
-
-#[derive(Default, Copy, Clone, Debug)]
-/// The plugin to add to your bevy [`App`](bevy::prelude::App) when you want
-/// to instantiate a client
-pub struct ClientPlugin<NCP: NetworkClientProvider, RT: Runtime = bevy::tasks::TaskPool>(
-    PhantomData<(NCP, RT)>,
-);
-
-impl<NCP: NetworkClientProvider + Default, RT: Runtime> Plugin for ClientPlugin<NCP, RT> {
-    fn build(&self, app: &mut App) {
-        app.insert_resource(managers::NetworkClient::new(NCP::default()));
-        app.add_event::<ClientNetworkEvent>();
-        app.add_system_to_stage(
-            CoreStage::PreUpdate,
-            managers::client::send_client_network_events::<NCP, RT>,
-        );
-        app.add_system_to_stage(
-            CoreStage::PreUpdate,
-            managers::client::handle_connection_event::<NCP, RT>,
+            managers::network::handle_new_incoming_connections::<NP, RT>,
         );
     }
 }
