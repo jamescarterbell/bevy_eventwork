@@ -142,6 +142,7 @@ mod network_message;
 
 /// Contains all functionality for starting a server or client, sending, and recieving messages from clients.
 pub mod managers;
+pub use managers::Network;
 
 mod runtime;
 use managers::NetworkProvider;
@@ -201,24 +202,13 @@ impl Debug for NetworkPacket {
     }
 }
 
-/// A network event originating from a [`NetworkServer`]
 #[derive(Debug)]
-pub enum ServerNetworkEvent {
+/// A network event originating from a [`NetworkClient`]
+pub enum NetworkEvent {
     /// A new client has connected
     Connected(ConnectionId),
     /// A client has disconnected
     Disconnected(ConnectionId),
-    /// An error occured while trying to do a network operation
-    Error(NetworkError),
-}
-
-#[derive(Debug)]
-/// A network event originating from a [`NetworkClient`]
-pub enum ClientNetworkEvent {
-    /// Connected to a server
-    Connected,
-    /// Disconnected from a server
-    Disconnected,
     /// An error occured while trying to do a network operation
     Error(NetworkError),
 }
@@ -279,7 +269,7 @@ pub struct EventworkPlugin<NP: NetworkProvider, RT: Runtime = bevy::tasks::TaskP
 impl<NP: NetworkProvider + Default, RT: Runtime> Plugin for EventworkPlugin<NP, RT> {
     fn build(&self, app: &mut App) {
         app.insert_resource(managers::Network::new(NP::default()));
-        app.add_event::<ServerNetworkEvent>();
+        app.add_event::<NetworkEvent>();
         app.add_system_to_stage(
             CoreStage::PreUpdate,
             managers::network::handle_new_incoming_connections::<NP, RT>,

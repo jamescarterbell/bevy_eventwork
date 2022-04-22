@@ -1,10 +1,10 @@
 #![allow(clippy::type_complexity)]
 
 use bevy::prelude::*;
-use bevy_eventwork::{ClientNetworkEvent, NetworkClient, NetworkData};
+use bevy_eventwork::{NetworkEvent, Network, NetworkData, ConnectionId};
 use std::{net::IpAddr, ops::Deref, str::FromStr};
 
-use bevy_eventwork::tcp::{NetworkSettings, TcpClientProvider};
+use bevy_eventwork::tcp::{NetworkSettings, TcpProvider};
 
 mod shared;
 
@@ -15,8 +15,8 @@ fn main() {
 
     // You need to add the `ClientPlugin` first before you can register
     // `ClientMessage`s
-    app.add_plugin(bevy_eventwork::ClientPlugin::<
-        TcpClientProvider,
+    app.add_plugin(bevy_eventwork::EventworkPlugin::<
+        TcpProvider,
         bevy::tasks::TaskPool,
     >::default());
 
@@ -60,7 +60,7 @@ fn handle_incoming_messages(
 }
 
 fn handle_network_events(
-    mut new_network_events: EventReader<ClientNetworkEvent>,
+    mut new_network_events: EventReader<NetworkEvent>,
     connect_query: Query<&Children, With<ConnectButton>>,
     mut text_query: Query<&mut Text>,
     mut messages: Query<&mut GameChatMessages>,
@@ -72,18 +72,18 @@ fn handle_network_events(
     for event in new_network_events.iter() {
         info!("Received event");
         match event {
-            ClientNetworkEvent::Connected => {
+            NetworkEvent::Connected(_) => {
                 messages.add(SystemMessage::new(
                     "Succesfully connected to server!".to_string(),
                 ));
                 text.sections[0].value = String::from("Disconnect");
             }
 
-            ClientNetworkEvent::Disconnected => {
+            NetworkEvent::Disconnected(_) => {
                 messages.add(SystemMessage::new("Disconnected from server!".to_string()));
                 text.sections[0].value = String::from("Connect to server");
             }
-            ClientNetworkEvent::Error(err) => {
+            NetworkEvent::Error(err) => {
                 messages.add(UserMessage::new(String::from("SYSTEM"), err.to_string()));
             }
         }
@@ -200,7 +200,7 @@ type GameChatMessages = ChatMessages<ChatMessage>;
 struct ConnectButton;
 
 fn handle_connect_button(
-    mut net: ResMut<NetworkClient<TcpClientProvider>>,
+    mut net: ResMut<Network<TcpProvider>>,
     settings: Res<NetworkSettings>,
     interaction_query: Query<
         (&Interaction, &Children),
@@ -220,7 +220,7 @@ fn handle_connect_button(
         let mut text = text_query.get_mut(children[0]).unwrap();
         if let Interaction::Clicked = interaction {
             if net.is_connected() {
-                net.disconnect();
+                net.disconnect(ConnectionId{id: 0});
             } else {
                 text.sections[0].value = String::from("Connecting...");
                 messages.add(SystemMessage::new("Connecting to server..."));
@@ -235,7 +235,7 @@ fn handle_connect_button(
 struct MessageButton;
 
 fn handle_message_button(
-    net: Res<NetworkClient<TcpClientProvider>>,
+    net: Res<Network<TcpProvider>>,
     interaction_query: Query<&Interaction, (Changed<Interaction>, With<MessageButton>)>,
     mut messages: Query<&mut GameChatMessages>,
 ) {
@@ -247,7 +247,9 @@ fn handle_message_button(
 
     for interaction in interaction_query.iter() {
         if let Interaction::Clicked = interaction {
-            match net.send_message(shared::UserChatMessage {
+            match net.send_message(
+                ConnectionId{id: 0},
+                shared::UserChatMessage {
                 message: String::from("Hello there!"),
             }) {
                 Ok(()) => (),

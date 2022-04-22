@@ -5,7 +5,7 @@ use crate::{
     async_trait,
     error::NetworkError,
     managers::NetworkProvider,
-    ClientNetworkEvent, NetworkPacket,
+    NetworkEvent, NetworkPacket,
 };
 use async_net::{TcpListener, TcpStream};
 use bevy::log::{debug, error, info, trace};
@@ -70,14 +70,14 @@ impl NetworkProvider for TcpProvider {
         connect_info: Self::ConnectInfo,
         network_settings: Self::NetworkSettings,
         new_connections: Sender<Self::Socket>,
-        errors: Sender<ClientNetworkEvent>,
+        errors: Sender<NetworkEvent>,
     ) {
         info!("Beginning connection");
         let stream = match TcpStream::connect(connect_info).await {
             Ok(stream) => stream,
             Err(error) => {
                 match errors
-                    .send(ClientNetworkEvent::Error(NetworkError::Connection(error)))
+                    .send(NetworkEvent::Error(NetworkError::Connection(error)))
                     .await
                 {
                     Ok(_) => (),
