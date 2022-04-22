@@ -3,7 +3,7 @@
 use async_net::{Ipv4Addr, SocketAddr};
 use bevy::prelude::*;
 use bevy_eventwork::{NetworkEvent, Network, NetworkData, ConnectionId};
-use std::{net::IpAddr, ops::Deref, str::FromStr};
+use std::{net::IpAddr, ops::Deref};
 
 use bevy_eventwork::tcp::{NetworkSettings, TcpProvider};
 
@@ -33,14 +33,11 @@ fn main() {
     app.add_system(handle_message_button);
     app.add_system(handle_incoming_messages);
     app.add_system(handle_network_events);
-    app.insert_resource(NetworkSettings::new((
-        IpAddr::from_str("127.0.0.1").unwrap(),
-        8080,
-    )));
+    app.insert_resource(NetworkSettings::default());
 
     app.init_resource::<GlobalChatSettings>();
 
-    app.add_system_to_stage(CoreStage::PostUpdate, handle_chat_area.system());
+    app.add_system_to_stage(CoreStage::PostUpdate, handle_chat_area);
 
     app.run();
 }
@@ -201,7 +198,7 @@ type GameChatMessages = ChatMessages<ChatMessage>;
 struct ConnectButton;
 
 fn handle_connect_button(
-    mut net: ResMut<Network<TcpProvider>>,
+    net: ResMut<Network<TcpProvider>>,
     settings: Res<NetworkSettings>,
     interaction_query: Query<
         (&Interaction, &Children),
@@ -221,7 +218,7 @@ fn handle_connect_button(
         let mut text = text_query.get_mut(children[0]).unwrap();
         if let Interaction::Clicked = interaction {
             if net.has_connections() {
-                net.disconnect(ConnectionId{id: 0});
+                net.disconnect(ConnectionId{id: 0}).expect("Couldn't disconnect from server!");
             } else {
                 text.sections[0].value = String::from("Connecting...");
                 messages.add(SystemMessage::new("Connecting to server..."));

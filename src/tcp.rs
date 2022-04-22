@@ -5,7 +5,7 @@ use crate::{
     async_trait,
     error::NetworkError,
     managers::NetworkProvider,
-    NetworkEvent, NetworkPacket,
+    NetworkPacket,
 };
 use async_net::{TcpListener, TcpStream};
 use bevy::log::{debug, error, info, trace};
@@ -31,7 +31,7 @@ impl NetworkProvider for TcpProvider {
 
     async fn accept_loop(
         accept_info: Self::AcceptInfo,
-        network_settings: Self::NetworkSettings,
+        _: Self::NetworkSettings,
         new_connections: Sender<Self::Socket>,
         errors: Sender<NetworkError>,
     ) {
@@ -68,11 +68,11 @@ impl NetworkProvider for TcpProvider {
 
     async fn connect_task(
         connect_info: Self::ConnectInfo,
-        network_settings: Self::NetworkSettings,
+        _: Self::NetworkSettings,
         new_connections: Sender<Self::Socket>,
     ) -> Result<(), NetworkError> {
         info!("Beginning connection");
-        let stream = TcpStream::connect(connect_info).await.map_err(|e| NetworkError::Connection(e))?;
+        let stream = TcpStream::connect(connect_info).await.map_err(NetworkError::Connection)?;
 
         info!("Connected!");
 
@@ -107,7 +107,7 @@ impl NetworkProvider for TcpProvider {
                 }
                 Ok(8) => {
                     let bytes = &buffer[..8];
-                    u64::from_le_bytes(bytes.try_into().unwrap()) as usize
+                    u64::from_le_bytes(bytes.try_into().expect("Couldn't read bytes from connection!")) as usize
                 }
                 Ok(n) => {
                     error!(
@@ -152,7 +152,7 @@ impl NetworkProvider for TcpProvider {
                 }
             };
 
-            if let Err(_) = messages.send(packet).await {
+            if messages.send(packet).await.is_err() {
                 error!("Failed to send decoded message to eventwork");
                 break;
             }
@@ -215,9 +215,8 @@ pub struct NetworkSettings {
     pub max_packet_length: usize,
 }
 
-impl NetworkSettings {
-    /// Create a new instance of [`NetworkSettings`]
-    pub fn new(addr: impl Into<SocketAddr>) -> Self {
+impl Default for NetworkSettings{
+    fn default() -> Self {
         Self {
             max_packet_length: 10 * 1024 * 1024,
         }

@@ -19,6 +19,12 @@ pub enum NetworkError {
 
     /// An error occured when trying to connect.
     Connection(std::io::Error),
+
+    /// Attempted to send data over a closed internal channel.
+    SendError,
+
+    /// Serialization error
+    Serialization,
 }
 
 impl Display for NetworkError{
@@ -29,6 +35,8 @@ impl Display for NetworkError{
             Self::ChannelClosed(id) => f.write_fmt(format_args!("Connection closed with id: {0}", id)),
             Self::Listen(e) => f.write_fmt(format_args!("An error occured when trying to start listening for new connections: {0}", e)),
             Self::Connection(e) => f.write_fmt(format_args!("An error occured when trying to connect: {0}", e)),
+            Self::SendError => f.write_fmt(format_args!("Attempted to send data over closed channel")),
+            Self::Serialization => f.write_fmt(format_args!("Failed to serialize")),
         }
     }
 }

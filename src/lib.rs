@@ -238,10 +238,6 @@ impl<T> Deref for NetworkData<T>{
 }
 
 impl<T> NetworkData<T> {
-    pub(crate) fn new(source: ConnectionId, inner: T) -> Self {
-        Self { source, inner }
-    }
-
     /// The source of this network data
     pub fn source(&self) -> &ConnectionId {
         &self.source
@@ -264,6 +260,7 @@ impl Connection {
     fn stop(mut self) {
         self.receive_task.abort();
         self.send_task.abort();
+        self.map_receive_task.abort();
     }
 }
 #[derive(Default, Copy, Clone, Debug)]

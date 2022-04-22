@@ -4,7 +4,6 @@ use bevy::prelude::*;
 use bevy_eventwork::{ConnectionId, NetworkData, Network, NetworkEvent};
 use std::net::{IpAddr, SocketAddr};
 use std::ops::Deref;
-use std::str::FromStr;
 use std::time::Duration;
 
 use bevy_eventwork::tcp::{NetworkSettings, TcpProvider};
@@ -34,10 +33,7 @@ fn main() {
     app.add_startup_system(setup_networking);
     app.add_system(handle_connection_events);
     app.add_system(handle_messages);
-    app.insert_resource(NetworkSettings::new((
-        IpAddr::from_str("127.0.0.1").unwrap(),
-        8080,
-    )));
+    app.insert_resource(NetworkSettings::default());
 
     app.run();
 }
