@@ -1,8 +1,6 @@
 use bevy::prelude::*;
-use bevy_eventwork::tcp::{TcpClientProvider, TcpServerProvider};
+use bevy_eventwork::{tcp::TcpProvider, NetworkMessage};
 use serde::{Deserialize, Serialize};
-
-use bevy_eventwork::{ClientMessage, ServerMessage};
 
 /////////////////////////////////////////////////////////////////////
 // In this example the client sends `UserChatMessage`s to the server,
@@ -21,7 +19,7 @@ pub struct UserChatMessage {
     pub message: String,
 }
 
-impl ServerMessage for UserChatMessage {
+impl NetworkMessage for UserChatMessage {
     const NAME: &'static str = "example:UserChatMessage";
 }
 
@@ -31,24 +29,24 @@ pub struct NewChatMessage {
     pub message: String,
 }
 
-impl ClientMessage for NewChatMessage {
+impl NetworkMessage for NewChatMessage {
     const NAME: &'static str = "example:NewChatMessage";
 }
 
 #[allow(unused)]
 pub fn client_register_network_messages(app: &mut App) {
-    use bevy_eventwork::AppNetworkClientMessage;
+    use bevy_eventwork::AppNetworkMessage;
 
     // The client registers messages that arrives from the server, so that
     // it is prepared to handle them. Otherwise, an error occurs.
-    app.listen_for_client_message::<NewChatMessage, TcpClientProvider>();
+    app.listen_for_message::<NewChatMessage, TcpProvider>();
 }
 
 #[allow(unused)]
 pub fn server_register_network_messages(app: &mut App) {
-    use bevy_eventwork::AppNetworkServerMessage;
+    use bevy_eventwork::AppNetworkMessage;
 
     // The server registers messages that arrives from a client, so that
     // it is prepared to handle them. Otherwise, an error occurs.
-    app.listen_for_server_message::<UserChatMessage, TcpServerProvider>();
+    app.listen_for_message::<UserChatMessage, TcpProvider>();
 }

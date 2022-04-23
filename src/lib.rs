@@ -3,7 +3,6 @@
     missing_debug_implementations,
     trivial_casts,
     trivial_numeric_casts,
-    unsafe_code,
     unstable_features,
     unused_import_braces,
     unused_qualifications,
@@ -14,37 +13,36 @@
 /*!
 A simple networking plugin for Bevy designed to work with Bevy's event architecture.
 
-Using this plugin is meant to be straightforward and highly configurable. You have one server and multiple clients.
-You simply add either the `ClientPlugin` or the `ServerPlugin` to the respective bevy app, the runtime you wish to use,
-and the netowrking provider you wish to use.  Then,
-register which kind of messages can be received through `listen_for_client_message` or `listen_for_server_message`
-(provided respectively by `AppNetworkClientMessage` and `AppNetworkServerMessage`), as well as which provider you want
+Using this plugin is meant to be straightforward and highly configurable.
+You simply add either the `EventworkPlugin` to the respective bevy app, the runtime you wish to use,
+and the networking provider you wish to use.  Then,
+register which kind of messages can be received through [`managers::network::AppNetworkMessage::listen_for_message`], as well as which provider you want
 to handle these messages and you
-can start receiving packets as events of `NetworkData<T>`.
+can start receiving packets as events of [`NetworkData<T>`].
 
 ## Example Client
 ```rust,no_run
 use bevy::prelude::*;
-use bevy_eventwork::{ClientPlugin, NetworkData, NetworkMessage, ServerMessage, ClientNetworkEvent, AppNetworkServerMessage};
+use bevy_eventwork::{EventworkPlugin, NetworkData, NetworkMessage, NetworkEvent, AppNetworkMessage, tcp::TcpProvider};
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
 struct WorldUpdate;
 
-#[typetag::serde]
-impl NetworkMessage for WorldUpdate {}
-
-impl ServerMessage for WorldUpdate {
+impl NetworkMessage for WorldUpdate {
     const NAME: &'static str = "example:WorldUpdate";
 }
 
 fn main() {
-     let mut app = App::build();
-     app.add_plugin(ClientPlugin);
+     let mut app = App::new();
+     app.add_plugin(EventworkPlugin::<
+        TcpProvider,
+        bevy::tasks::TaskPool,
+    >::default());
      // We are receiving this from the server, so we need to listen for it
-     app.listen_for_server_message::<WorldUpdate>();
-     app.add_system(handle_world_updates.system());
-     app.add_system(handle_connection_events.system());
+     app.listen_for_message::<WorldUpdate, TcpProvider>();
+     app.add_system(handle_world_updates);
+     app.add_system(handle_connection_events);
 }
 
 fn handle_world_updates(
@@ -55,10 +53,10 @@ fn handle_world_updates(
     }
 }
 
-fn handle_connection_events(mut network_events: EventReader<ClientNetworkEvent>,) {
+fn handle_connection_events(mut network_events: EventReader<NetworkEvent>,) {
     for event in network_events.iter() {
         match event {
-            &ClientNetworkEvent::Connected => info!("Connected to server!"),
+            &NetworkEvent::Connected(_) => info!("Connected to server!"),
             _ => (),
         }
     }
@@ -69,30 +67,33 @@ fn handle_connection_events(mut network_events: EventReader<ClientNetworkEvent>,
 ## Example Server
 ```rust,no_run
 use bevy::prelude::*;
-use bevy_eventwork::{ServerPlugin, NetworkData, NetworkMessage, NetworkServer, ServerMessage, ClientMessage, ServerNetworkEvent, AppNetworkClientMessage};
+use bevy_eventwork::{
+    EventworkPlugin, NetworkData, NetworkMessage, Network, NetworkEvent, AppNetworkMessage,
+    tcp::TcpProvider,
+};
 
 use serde::{Serialize, Deserialize};
+
 #[derive(Serialize, Deserialize)]
 struct UserInput;
 
-#[typetag::serde]
-impl NetworkMessage for UserInput {}
-
-impl ClientMessage for UserInput {
+impl NetworkMessage for UserInput {
     const NAME: &'static str = "example:UserInput";
 }
 
 fn main() {
-     let mut app = App::build();
-     app.add_plugin(ServerPlugin);
+     let mut app = App::new();
+     app.add_plugin(EventworkPlugin::<
+        TcpProvider,
+        bevy::tasks::TaskPool,
+    >::default());
      // We are receiving this from a client, so we need to listen for it!
-     app.listen_for_client_message::<UserInput>();
-     app.add_system(handle_world_updates.system());
-     app.add_system(handle_connection_events.system());
+     app.listen_for_message::<UserInput, TcpProvider>();
+     app.add_system(handle_world_updates);
+     app.add_system(handle_connection_events);
 }
 
 fn handle_world_updates(
-    net: Res<NetworkServer>,
     mut chunk_updates: EventReader<NetworkData<UserInput>>,
 ) {
     for chunk in chunk_updates.iter() {
@@ -103,27 +104,18 @@ fn handle_world_updates(
 #[derive(Serialize, Deserialize)]
 struct PlayerUpdate;
 
-#[typetag::serde]
-impl NetworkMessage for PlayerUpdate {}
-
-impl ClientMessage for PlayerUpdate {
+impl NetworkMessage for PlayerUpdate {
     const NAME: &'static str = "example:PlayerUpdate";
 }
 
-impl PlayerUpdate {
-    fn new() -> PlayerUpdate {
-        Self
-    }
-}
-
 fn handle_connection_events(
-    net: Res<NetworkServer>,
-    mut network_events: EventReader<ServerNetworkEvent>,
+    net: Res<Network<TcpProvider>>,
+    mut network_events: EventReader<NetworkEvent>,
 ) {
     for event in network_events.iter() {
         match event {
-            &ServerNetworkEvent::Connected(conn_id) => {
-                net.send_message(conn_id, PlayerUpdate::new());
+            &NetworkEvent::Connected(conn_id) => {
+                net.send_message(conn_id, PlayerUpdate);
                 info!("New client connected: {:?}", conn_id);
             }
             _ => (),
@@ -137,31 +129,29 @@ As you can see, they are both quite similar, and provide everything a basic netw
 Currently, Bevy's [TaskPool] is the default runtime used by Eventwork.
 */
 
-/// Contains all functionality for contenctin to a server, sending, and recieving messages with it.
-pub mod client;
 /// Contains error enum.
 pub mod error;
 mod network_message;
 
-/// Contains all functionality for starting a server, sending, and recieving messages from clients.
-pub mod server;
+/// Contains all functionality for starting a server or client, sending, and recieving messages from clients.
+pub mod managers;
+pub use managers::{Network, network::AppNetworkMessage};
 
 mod runtime;
+use managers::NetworkProvider;
 use runtime::JoinHandle;
 pub use runtime::Runtime;
 
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::{Debug, Display}, marker::PhantomData};
 
 pub use async_channel;
 use async_channel::{unbounded, Receiver, Sender};
 pub use async_trait::async_trait;
-use bevy::{prelude::*, utils::Uuid};
-pub use client::{AppNetworkClientMessage, NetworkClient, NetworkClientProvider};
-use derive_more::{Deref, Display};
+use bevy::prelude::*;
 use error::NetworkError;
-pub use network_message::{ClientMessage, ServerMessage};
+pub use network_message::NetworkMessage;
 use serde::{Deserialize, Serialize};
-pub use server::{AppNetworkServerMessage, NetworkServer, NetworkServerProvider};
+use std::ops::Deref;
 
 #[cfg(feature = "tcp")]
 /// A default tcp provider to help get you started.
@@ -180,35 +170,20 @@ impl<T> AsyncChannel<T> {
     }
 }
 
-#[derive(Hash, PartialEq, Eq, Clone, Copy, Display, Debug)]
-#[display(fmt = "Connection with ID={}", /*addr,*/ uuid)]
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 /// A [`ConnectionId`] denotes a single connection
 ///
 /// Use [`ConnectionId::is_server`] whether it is a connection to a server
 /// or another. In most client/server applications this is not required as there
 /// is no ambiguity.
 pub struct ConnectionId {
-    uuid: Uuid,
-    //addr: SocketAddr,
+    /// The key of the connection.
+    pub id: u32
 }
 
-impl ConnectionId {
-    /// Get the address associated to this connection id
-    ///
-    /// This contains the IP/Port information
-    /*
-    pub fn address(&self) -> SocketAddr {
-        self.addr
-    }
-    */
-
-    pub(crate) fn server() -> Self {
-        Self { uuid: Uuid::nil() }
-    }
-
-    /// Check whether this [`ConnectionId`] is a server
-    pub fn is_server(&self) -> bool {
-        self.uuid == Uuid::nil()
+impl Display for ConnectionId{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("Connection with ID={0}", self.id))
     }
 }
 
@@ -227,9 +202,9 @@ impl Debug for NetworkPacket {
     }
 }
 
-/// A network event originating from a [`NetworkServer`]
 #[derive(Debug)]
-pub enum ServerNetworkEvent {
+/// A network event originating from a [`NetworkClient`]
+pub enum NetworkEvent {
     /// A new client has connected
     Connected(ConnectionId),
     /// A client has disconnected
@@ -239,34 +214,26 @@ pub enum ServerNetworkEvent {
 }
 
 #[derive(Debug)]
-/// A network event originating from a [`NetworkClient`]
-pub enum ClientNetworkEvent {
-    /// Connected to a server
-    Connected,
-    /// Disconnected from a server
-    Disconnected,
-    /// An error occured while trying to do a network operation
-    Error(NetworkError),
-}
-
-#[derive(Debug, Deref)]
 /// [`NetworkData`] is what is sent over the bevy event system
 ///
 /// Please check the root documentation how to up everything
 pub struct NetworkData<T> {
     source: ConnectionId,
-    #[deref]
     inner: T,
 }
 
-impl<T> NetworkData<T> {
-    pub(crate) fn new(source: ConnectionId, inner: T) -> Self {
-        Self { source, inner }
-    }
+impl<T> Deref for NetworkData<T>{
+    type Target = T;
 
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<T> NetworkData<T> {
     /// The source of this network data
-    pub fn source(&self) -> ConnectionId {
-        self.source
+    pub fn source(&self) -> &ConnectionId {
+        &self.source
     }
 
     /// Get the inner data out of it
@@ -275,8 +242,6 @@ impl<T> NetworkData<T> {
     }
 }
 
-#[derive(Display)]
-#[display(fmt = "Server connection")]
 struct Connection {
     receive_task: Box<dyn JoinHandle>,
     map_receive_task: Box<dyn JoinHandle>,
@@ -288,44 +253,23 @@ impl Connection {
     fn stop(mut self) {
         self.receive_task.abort();
         self.send_task.abort();
+        self.map_receive_task.abort();
     }
 }
 #[derive(Default, Copy, Clone, Debug)]
 /// The plugin to add to your bevy [`App`](bevy::prelude::App) when you want
 /// to instantiate a server
-pub struct ServerPlugin<NSP: NetworkServerProvider, RT: Runtime = bevy::tasks::TaskPool>(
-    PhantomData<(NSP, RT)>,
+pub struct EventworkPlugin<NP: NetworkProvider, RT: Runtime = bevy::tasks::TaskPool>(
+    PhantomData<(NP, RT)>,
 );
 
-impl<NSP: NetworkServerProvider + Default, RT: Runtime> Plugin for ServerPlugin<NSP, RT> {
+impl<NP: NetworkProvider + Default, RT: Runtime> Plugin for EventworkPlugin<NP, RT> {
     fn build(&self, app: &mut App) {
-        app.insert_resource(server::NetworkServer::new(NSP::default()));
-        app.add_event::<ServerNetworkEvent>();
+        app.insert_resource(managers::Network::new(NP::default()));
+        app.add_event::<NetworkEvent>();
         app.add_system_to_stage(
             CoreStage::PreUpdate,
-            server::handle_new_incoming_connections::<NSP, RT>,
-        );
-    }
-}
-
-#[derive(Default, Copy, Clone, Debug)]
-/// The plugin to add to your bevy [`App`](bevy::prelude::App) when you want
-/// to instantiate a client
-pub struct ClientPlugin<NCP: NetworkClientProvider, RT: Runtime = bevy::tasks::TaskPool>(
-    PhantomData<(NCP, RT)>,
-);
-
-impl<NCP: NetworkClientProvider + Default, RT: Runtime> Plugin for ClientPlugin<NCP, RT> {
-    fn build(&self, app: &mut App) {
-        app.insert_resource(client::NetworkClient::new(NCP::default()));
-        app.add_event::<ClientNetworkEvent>();
-        app.add_system_to_stage(
-            CoreStage::PreUpdate,
-            client::send_client_network_events::<NCP, RT>,
-        );
-        app.add_system_to_stage(
-            CoreStage::PreUpdate,
-            client::handle_connection_event::<NCP, RT>,
+            managers::network::handle_new_incoming_connections::<NP, RT>,
         );
     }
 }

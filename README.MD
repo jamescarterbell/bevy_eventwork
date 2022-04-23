@@ -1,11 +1,5 @@
-> `bevy_eventwork` is a solution to the "How do I connect multiple clients to a single server" problem in your [bevy](https://bevyengine.org/) games, forked from the excellent [`bevy_spicy_networking`](https://crates.io/crates/bevy_spicy_networking), with significant changes for modularity and including the removal of big dependencies like tokio and typetag.
+> `bevy_eventwork` is a solution to the "How do I connect multiple bevy instances" problem in your [bevy](https://bevyengine.org/) games, forked from the excellent [`bevy_spicy_networking`](https://crates.io/crates/bevy_spicy_networking), with significant changes for modularity and including the removal of big dependencies like tokio and typetag.
 
-<hr>
-
-Simply add either the server/client plugins, your chosen transport provider (a simple tcp provider is provided), and your runtime, then register the types of messages you plan on receiving and listen for them as events!
-
-
-<hr>
 
 ### Contents
 - [Documentation](#documentation)
@@ -37,8 +31,7 @@ is more complete.)
 1. Add `bevy_eventwork`, and `serde` to your `Cargo.toml`
 2. Create the messages you wish to exchange beetween a client and server, or vice-versa.
     - Implement Serialize and Deserialize from Serde on it
-    - Implement `ServerMessage` when it is sent to the server from a client.
-    - Implement `ClientMessage` when it is sent to a client from the server.
+    - Implement `NetworkMessage` when it is sent to the server from a client
 
 ```rust
 #[derive(Serialize, Deserialize)]
@@ -47,24 +40,25 @@ struct WhisperMessage {
     message: String,
 }
 
-// In this case, its a client sending a message to a server
-impl ServerMessage for WhisperMessage {
-    const NAME: &'static str = "example:WhisperMessage"; // This name needs to be unique!
-    // Otherwise, the recipient will mix up the messages
+/// In this example, we'll be sending this from a client to a server,
+/// BUT, any eventwork bevy instance could recieve the message as
+/// long as they register to listen for it.
+impl NetworkMessage for WhisperMessage {
+    const NAME: &'static str = "example:WhisperMessage"; 
 }
 ```
 
 3. On the recipient side, register the type to be received
 
 ```rust
-use bevy_eventwork::AppNetworkServerMessage;
+use bevy_eventwork::{AppNetworkMessage, tcp::TcpProvider};
 
 let appbuilder: &mut AppBuilder = /* Get an AppBuilder, which is returned by bevy from App::build() */;
 
 
 // Now whenever a client sends a `WhisperMessage` the server will generate an event of
 // `NetworkData<WhisperMessage>` which your application can then handle
-appbuilder.listen_for_server_message::<WhisperMessage>();
+appbuilder.listen_for_message::<WhisperMessage, TcpProvider>();
 ```
 
 4. Listen for events of that type
@@ -79,6 +73,8 @@ fn handle_incoming_whisper_messages(
 }
 ```
 
+## Request/Response
+Starting with version 0.7.1, you can now automatically handle Request/Response style messaging with event work! Check the documentation for more info!
 
 Bevy Version Compatibility
 --------------------------
@@ -100,10 +96,12 @@ Currently only **Linux** and **Windows** are officially supported, I don't see w
 Roadmap
 -------
 
+* General code cleanup, testing, and documentation work
 * Message wide event pipelines
     * Useful for mapping connection id to user provided ids
 * Message type mapping (
     * Currently the message type is sent as a string with each method, it would be nice if you could just send a few bytes instead.
+* RPCs!
 
 
 Crates using `bevy_eventwork`
