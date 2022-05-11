@@ -1,6 +1,5 @@
 #![deny(
     missing_docs,
-    missing_debug_implementations,
     trivial_casts,
     trivial_numeric_casts,
     unstable_features,
@@ -135,14 +134,17 @@ mod network_message;
 
 /// Contains all functionality for starting a server or client, sending, and recieving messages from clients.
 pub mod managers;
-pub use managers::{Network, network::AppNetworkMessage};
+pub use managers::{network::AppNetworkMessage, Network};
 
 mod runtime;
 use managers::NetworkProvider;
 use runtime::JoinHandle;
 pub use runtime::Runtime;
 
-use std::{fmt::{Debug, Display}, marker::PhantomData};
+use std::{
+    fmt::{Debug, Display},
+    marker::PhantomData,
+};
 
 pub use async_channel;
 use async_channel::{unbounded, Receiver, Sender};
@@ -178,10 +180,10 @@ impl<T> AsyncChannel<T> {
 /// is no ambiguity.
 pub struct ConnectionId {
     /// The key of the connection.
-    pub id: u32
+    pub id: u32,
 }
 
-impl Display for ConnectionId{
+impl Display for ConnectionId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("Connection with ID={0}", self.id))
     }
@@ -222,7 +224,7 @@ pub struct NetworkData<T> {
     inner: T,
 }
 
-impl<T> Deref for NetworkData<T>{
+impl<T> Deref for NetworkData<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {

@@ -60,13 +60,14 @@ impl<NP: NetworkProvider> Network<NP> {
 
         let new_connections = self.new_connections.sender.clone();
         let error_sender = self.error_channel.sender.clone();
+        let settings = network_settings.clone();
 
         trace!("Started listening");
 
-        self.server_handle = Some(Box::new(runtime.spawn(async {
-            let accept = NP::accept_loop(accept_info, network_settings.clone()).await;
+        self.server_handle = Some(Box::new(runtime.spawn(async move {
+            let accept = NP::accept_loop(accept_info, settings).await;
             match accept {
-                Ok(listen_stream) => {
+                Ok(mut listen_stream) => {
                     while let Some(connection) = listen_stream.next().await {
                         new_connections
                             .send(connection)
