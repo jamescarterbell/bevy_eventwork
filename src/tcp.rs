@@ -202,15 +202,14 @@ impl Default for NetworkSettings {
 
 /// A special stream for recieving tcp connections
 pub struct OwnedIncoming {
-    inner: Arc<TcpListener>,
+    inner: TcpListener,
     stream: Option<Pin<Box<dyn Future<Output = Option<TcpStream>>>>>,
 }
 
 impl OwnedIncoming {
     fn new(listener: TcpListener) -> Self {
-        let inner = Arc::new(listener);
         Self {
-            inner: inner.clone(),
+            inner: listener,
             stream: None,
         }
     }
@@ -223,11 +222,15 @@ impl Stream for OwnedIncoming {
         self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        let incoming = Pin::into_inner(self);
+        let incoming = self.get_mut();
         if let None = incoming.stream {
-            let listener = incoming.inner.clone();
+            let listener: *const TcpListener = &incoming.inner;
             incoming.stream = Some(Box::pin(async move {
-                listener.accept().await.map(|(s, _)| s).ok()
+                unsafe { listener.as_ref().unwrap() }
+                    .accept()
+                    .await
+                    .map(|(s, _)| s)
+                    .ok()
             }));
         }
         if let Some(stream) = &mut incoming.stream {
