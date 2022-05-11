@@ -1,12 +1,12 @@
-use std::{sync::{Arc, atomic::AtomicU32}};
+use std::sync::{atomic::AtomicU32, Arc};
 
 use async_channel::{Receiver, Sender};
 use async_trait::async_trait;
 use dashmap::DashMap;
+use futures_lite::Stream;
 
 use crate::{
-    error::NetworkError, runtime::JoinHandle, AsyncChannel, Connection,
-    ConnectionId, NetworkPacket,
+    error::NetworkError, runtime::JoinHandle, AsyncChannel, Connection, ConnectionId, NetworkPacket,
 };
 
 /// Contains logic for using [`Network`]
@@ -51,20 +51,20 @@ pub trait NetworkProvider: 'static + Send + Sync {
     /// Info necessary to start a connection, an [`std::net::SocketAddr`] for instance
     type AcceptInfo: Send;
 
+    /// The output type of [`accept_loop`]
+    type AcceptStream: Stream<Item = Self::Socket> + Unpin + Send;
+
     /// This will be spawned as a background operation to continuously add new connections.
     async fn accept_loop(
         accept_info: Self::AcceptInfo,
         network_settings: Self::NetworkSettings,
-        new_connections: Sender<Self::Socket>,
-        errors: Sender<NetworkError>,
-    );
+    ) -> Result<Self::AcceptStream, NetworkError>;
 
-    /// This is spawned as a background operation to attempt to connect to a remote address.
+    /// Attempts to connect to a remote
     async fn connect_task(
         connect_info: Self::ConnectInfo,
         network_settings: Self::NetworkSettings,
-        new_connections: Sender<Self::Socket>,
-    ) -> Result<(), NetworkError>;
+    ) -> Result<Self::Socket, NetworkError>;
 
     /// Recieves messages from the client, forwards them to Spicy via a sender.
     async fn recv_loop(
