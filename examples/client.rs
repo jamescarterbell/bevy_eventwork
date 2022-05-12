@@ -2,7 +2,7 @@
 
 use async_net::{Ipv4Addr, SocketAddr};
 use bevy::prelude::*;
-use bevy_eventwork::{NetworkEvent, Network, NetworkData, ConnectionId};
+use bevy_eventwork::{ConnectionId, Network, NetworkData, NetworkEvent};
 use std::{net::IpAddr, ops::Deref};
 
 use bevy_eventwork::tcp::{NetworkSettings, TcpProvider};
@@ -218,15 +218,17 @@ fn handle_connect_button(
         let mut text = text_query.get_mut(children[0]).unwrap();
         if let Interaction::Clicked = interaction {
             if net.has_connections() {
-                net.disconnect(ConnectionId{id: 0}).expect("Couldn't disconnect from server!");
+                net.disconnect(ConnectionId { id: 0 })
+                    .expect("Couldn't disconnect from server!");
             } else {
                 text.sections[0].value = String::from("Connecting...");
                 messages.add(SystemMessage::new("Connecting to server..."));
 
                 net.connect(
                     SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
-                    task_pool.deref(), 
-                    &settings);
+                    task_pool.deref(),
+                    &settings,
+                );
             }
         }
     }
@@ -249,10 +251,11 @@ fn handle_message_button(
     for interaction in interaction_query.iter() {
         if let Interaction::Clicked = interaction {
             match net.send_message(
-                ConnectionId{id: 0},
+                ConnectionId { id: 0 },
                 shared::UserChatMessage {
-                message: String::from("Hello there!"),
-            }) {
+                    message: String::from("Hello there!"),
+                },
+            ) {
                 Ok(()) => (),
                 Err(err) => messages.add(SystemMessage::new(format!(
                     "Could not send message: {}",

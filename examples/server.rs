@@ -1,7 +1,7 @@
 use async_net::Ipv4Addr;
 use bevy::app::ScheduleRunnerSettings;
 use bevy::prelude::*;
-use bevy_eventwork::{ConnectionId, NetworkData, Network, NetworkEvent};
+use bevy_eventwork::{ConnectionId, Network, NetworkData, NetworkEvent};
 use std::net::{IpAddr, SocketAddr};
 use std::ops::Deref;
 use std::time::Duration;
@@ -51,7 +51,11 @@ fn setup_networking(
 
     let _socket_address = SocketAddr::new(ip_address, 9999);
 
-    match net.listen(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),runtime.deref(), &settings) {
+    match net.listen(
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
+        runtime.deref(),
+        &settings,
+    ) {
         Ok(_) => (),
         Err(err) => {
             error!("Could not start listening: {}", err);
