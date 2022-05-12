@@ -1,15 +1,16 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, ops::Deref, pin::Pin, sync::Arc};
 
 use crate::{
     async_channel::{Receiver, Sender},
     async_trait,
     error::NetworkError,
     managers::NetworkProvider,
-    NetworkPacket,
+    Network, NetworkPacket,
 };
-use async_net::{TcpListener, TcpStream};
+use async_net::{Incoming, TcpListener, TcpStream};
 use bevy::log::{debug, error, info, trace};
-use futures_lite::{AsyncReadExt, AsyncWriteExt};
+use futures_lite::{AsyncReadExt, AsyncWriteExt, FutureExt, Stream, StreamExt};
+use std::future::Future;
 
 #[derive(Default, Debug)]
 /// Provides a tcp stream and listener for eventwork.
@@ -29,50 +30,27 @@ impl NetworkProvider for TcpProvider {
 
     type AcceptInfo = SocketAddr;
 
+    type AcceptStream = OwnedIncoming;
+
     async fn accept_loop(
         accept_info: Self::AcceptInfo,
         _: Self::NetworkSettings,
-        new_connections: Sender<Self::Socket>,
-        errors: Sender<NetworkError>,
-    ) {
-        let listener = match TcpListener::bind(accept_info).await {
-            Ok(listener) => listener,
-            Err(err) => {
-                if let Err(err) = errors.send(NetworkError::Listen(err)).await {
-                    error!("Could not send listen error: {}", err);
-                }
-                return;
-            }
-        };
+    ) -> Result<Self::AcceptStream, NetworkError> {
+        let listener = TcpListener::bind(accept_info)
+            .await
+            .map_err(NetworkError::Listen)?;
 
-        let new_connections = new_connections;
-        loop {
-            let resp = match listener.accept().await {
-                Ok((socket, _addr)) => socket,
-                Err(error) => {
-                    if let Err(err) = errors.send(NetworkError::Accept(error)).await {
-                        error!("Could not send listen error: {}", err);
-                        return;
-                    };
-                    continue;
-                }
-            };
-
-            if let Err(err) = new_connections.send(resp).await {
-                error!("Could not send listen error: {}", err);
-                return;
-            }
-            info!("New Connection Made!");
-        }
+        Ok(OwnedIncoming::new(listener))
     }
 
     async fn connect_task(
         connect_info: Self::ConnectInfo,
         _: Self::NetworkSettings,
-        new_connections: Sender<Self::Socket>,
-    ) -> Result<(), NetworkError> {
+    ) -> Result<Self::Socket, NetworkError> {
         info!("Beginning connection");
-        let stream = TcpStream::connect(connect_info).await.map_err(NetworkError::Connection)?;
+        let stream = TcpStream::connect(connect_info)
+            .await
+            .map_err(NetworkError::Connection)?;
 
         info!("Connected!");
 
@@ -80,13 +58,8 @@ impl NetworkProvider for TcpProvider {
             .peer_addr()
             .expect("Could not fetch peer_addr of existing stream");
 
-        new_connections
-            .send(stream)
-            .await
-            .expect("Network dropped!");
-
         debug!("Connected to: {:?}", addr);
-        return Ok(());
+        return Ok(stream);
     }
 
     async fn recv_loop(
@@ -107,7 +80,11 @@ impl NetworkProvider for TcpProvider {
                 }
                 Ok(8) => {
                     let bytes = &buffer[..8];
-                    u64::from_le_bytes(bytes.try_into().expect("Couldn't read bytes from connection!")) as usize
+                    u64::from_le_bytes(
+                        bytes
+                            .try_into()
+                            .expect("Couldn't read bytes from connection!"),
+                    ) as usize
                 }
                 Ok(n) => {
                     error!(
@@ -215,10 +192,55 @@ pub struct NetworkSettings {
     pub max_packet_length: usize,
 }
 
-impl Default for NetworkSettings{
+impl Default for NetworkSettings {
     fn default() -> Self {
         Self {
             max_packet_length: 10 * 1024 * 1024,
         }
     }
 }
+
+/// A special stream for recieving tcp connections
+pub struct OwnedIncoming {
+    inner: TcpListener,
+    stream: Option<Pin<Box<dyn Future<Output = Option<TcpStream>>>>>,
+}
+
+impl OwnedIncoming {
+    fn new(listener: TcpListener) -> Self {
+        Self {
+            inner: listener,
+            stream: None,
+        }
+    }
+}
+
+impl Stream for OwnedIncoming {
+    type Item = TcpStream;
+
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        let incoming = self.get_mut();
+        if let None = incoming.stream {
+            let listener: *const TcpListener = &incoming.inner;
+            incoming.stream = Some(Box::pin(async move {
+                unsafe { listener.as_ref().unwrap() }
+                    .accept()
+                    .await
+                    .map(|(s, _)| s)
+                    .ok()
+            }));
+        }
+        if let Some(stream) = &mut incoming.stream {
+            if let std::task::Poll::Ready(res) = stream.poll(cx) {
+                incoming.stream = None;
+                return std::task::Poll::Ready(res);
+            }
+        }
+        std::task::Poll::Pending
+    }
+}
+
+unsafe impl Send for OwnedIncoming {}

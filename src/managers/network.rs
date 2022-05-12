@@ -1,14 +1,16 @@
-use std::sync::{Arc, atomic::{Ordering, AtomicU32}};
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc,
+};
 
 use async_channel::unbounded;
 use bevy::prelude::*;
 use dashmap::DashMap;
+use futures_lite::StreamExt;
 
 use crate::{
-    error::NetworkError,
-    network_message::NetworkMessage,
-    AsyncChannel, Connection, ConnectionId, NetworkData, NetworkPacket, Runtime,
-    NetworkEvent,
+    error::NetworkError, network_message::NetworkMessage, AsyncChannel, Connection, ConnectionId,
+    NetworkData, NetworkEvent, NetworkPacket, Runtime,
 };
 
 use super::{Network, NetworkProvider};
@@ -38,16 +40,16 @@ impl<NP: NetworkProvider> Network<NP> {
         }
     }
 
-    /// Returns true if there are any active connections 
+    /// Returns true if there are any active connections
     #[inline(always)]
-    pub fn has_connections(&self) -> bool{
+    pub fn has_connections(&self) -> bool {
         self.established_connections.len() > 0
     }
 
     /// Start listening for new clients
     ///
     /// ## Note
-    /// If you are already listening for new connections, then this will disconnect existing connections first
+    /// If you are already listening for new connections, this will cancel the original listen
     pub fn listen<RT: Runtime>(
         &mut self,
         accept_info: NP::AcceptInfo,
@@ -58,25 +60,38 @@ impl<NP: NetworkProvider> Network<NP> {
 
         let new_connections = self.new_connections.sender.clone();
         let error_sender = self.error_channel.sender.clone();
-
-        let listen_loop = NP::accept_loop(
-            accept_info, 
-            network_settings.clone(), 
-            new_connections, 
-            error_sender);
+        let settings = network_settings.clone();
 
         trace!("Started listening");
 
-        self.server_handle = Some(Box::new(runtime.spawn(listen_loop)));
+        self.server_handle = Some(Box::new(runtime.spawn(async move {
+            let accept = NP::accept_loop(accept_info, settings).await;
+            match accept {
+                Ok(mut listen_stream) => {
+                    while let Some(connection) = listen_stream.next().await {
+                        new_connections
+                            .send(connection)
+                            .await
+                            .expect("Connection channel has closed");
+                    }
+                }
+                Err(e) => error_sender
+                    .send(e)
+                    .await
+                    .expect("Error channel has closed."),
+            }
+        })));
 
         Ok(())
     }
 
     /// Start async connecting to a remote server.
-    ///
-    /// ## Note
-    /// This will disconnect you first from any existing server connections
-    pub fn connect<RT: Runtime>(&self, connect_info: NP::ConnectInfo, runtime: &RT, network_settings: &NP::NetworkSettings) {
+    pub fn connect<RT: Runtime>(
+        &self,
+        connect_info: NP::ConnectInfo,
+        runtime: &RT,
+        network_settings: &NP::NetworkSettings,
+    ) {
         debug!("Starting connection");
 
         let network_error_sender = self.error_channel.sender.clone();
@@ -86,21 +101,27 @@ impl<NP: NetworkProvider> Network<NP> {
         let connection_task_weak = Arc::downgrade(&self.connection_tasks);
         let task_count = self.connection_task_counts.fetch_add(1, Ordering::SeqCst);
 
-        self.connection_tasks.insert(task_count, Box::new(runtime.spawn(async move {
-            if let Err(e) = NP::connect_task(
-                connect_info,
-                settings,
-                connection_event_sender).await{
-                network_error_sender
-                    .send(e)
-                    .await
-                    .expect("Error channel has closed.");
-            }
-            connection_task_weak
-                .upgrade()
-                .expect("Network dropped")
-                .remove(&task_count);
-        })));
+        self.connection_tasks.insert(
+            task_count,
+            Box::new(runtime.spawn(async move {
+                match NP::connect_task(connect_info, settings).await {
+                    Ok(connection) => connection_event_sender
+                        .send(connection)
+                        .await
+                        .expect("Connection channel has closed"),
+                    Err(e) => network_error_sender
+                        .send(e)
+                        .await
+                        .expect("Error channel has closed."),
+                };
+
+                // Remove the connection task from our dictionary of connection tasks
+                connection_task_weak
+                    .upgrade()
+                    .expect("Network dropped")
+                    .remove(&task_count);
+            })),
+        );
     }
 
     /// Send a message to a specific client
@@ -186,11 +207,9 @@ pub(crate) fn handle_new_incoming_connections<NP: NetworkProvider, RT: Runtime>(
     mut network_events: EventWriter<NetworkEvent>,
 ) {
     while let Ok(new_conn) = server.new_connections.receiver.try_recv() {
-        server.connection_count += 1;
         let id = server.connection_count;
-        let conn_id = ConnectionId {
-            id
-        };
+        let conn_id = ConnectionId { id };
+        server.connection_count += 1;
 
         let (read_half, write_half) = NP::split(new_conn);
         let recv_message_map = server.recv_message_map.clone();
@@ -254,15 +273,11 @@ pub trait AppNetworkMessage {
     /// - Add a new event type of [`NetworkData<T>`]
     /// - Register the type for transformation over the wire
     /// - Internal bookkeeping
-    fn listen_for_message<T: NetworkMessage, NP: NetworkProvider>(
-        &mut self,
-    ) -> &mut Self;
+    fn listen_for_message<T: NetworkMessage, NP: NetworkProvider>(&mut self) -> &mut Self;
 }
 
 impl AppNetworkMessage for App {
-    fn listen_for_message<T: NetworkMessage, NP: NetworkProvider>(
-        &mut self,
-    ) -> &mut Self {
+    fn listen_for_message<T: NetworkMessage, NP: NetworkProvider>(&mut self) -> &mut Self {
         let server = self.world.get_resource::<Network<NP>>().expect("Could not find `Network`. Be sure to include the `ServerPlugin` before listening for server messages.");
 
         debug!("Registered a new ServerMessage: {}", T::NAME);
