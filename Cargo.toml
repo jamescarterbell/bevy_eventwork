@@ -1,6 +1,6 @@
 [package]
 name = "bevy_eventwork"
-version = "0.7.1"
+version = "0.7.2"
 authors = ["James <jamescarterbell@gmail.com>", "Neikos <neikos@neikos.email>"]
 edition = "2021"
 description = "Event based networking library for Bevy"
