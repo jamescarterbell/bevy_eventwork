@@ -1,15 +1,15 @@
-use std::{net::SocketAddr, ops::Deref, pin::Pin, sync::Arc};
+use std::{net::SocketAddr, pin::Pin};
 
 use crate::{
     async_channel::{Receiver, Sender},
     async_trait,
     error::NetworkError,
     managers::NetworkProvider,
-    Network, NetworkPacket,
+    NetworkPacket,
 };
-use async_net::{Incoming, TcpListener, TcpStream};
+use async_net::{TcpListener, TcpStream};
 use bevy::log::{debug, error, info, trace};
-use futures_lite::{AsyncReadExt, AsyncWriteExt, FutureExt, Stream, StreamExt};
+use futures_lite::{AsyncReadExt, AsyncWriteExt, FutureExt, Stream};
 use std::future::Future;
 
 #[derive(Default, Debug)]
@@ -223,14 +223,18 @@ impl Stream for OwnedIncoming {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
         let incoming = self.get_mut();
-        if let None = incoming.stream {
+        if incoming.stream.is_none() {
             let listener: *const TcpListener = &incoming.inner;
             incoming.stream = Some(Box::pin(async move {
-                unsafe { listener.as_ref().unwrap() }
-                    .accept()
-                    .await
-                    .map(|(s, _)| s)
-                    .ok()
+                unsafe {
+                    listener
+                        .as_ref()
+                        .expect("Segfault when trying to read listener in OwnedStream")
+                }
+                .accept()
+                .await
+                .map(|(s, _)| s)
+                .ok()
             }));
         }
         if let Some(stream) = &mut incoming.stream {
