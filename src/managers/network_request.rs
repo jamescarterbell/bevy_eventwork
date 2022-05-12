@@ -8,11 +8,9 @@ use bevy::{
 use dashmap::DashMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use crate::{NetworkMessage, ConnectionId, NetworkData, NetworkPacket, error::NetworkError};
+use crate::{error::NetworkError, ConnectionId, NetworkData, NetworkMessage, NetworkPacket};
 
-use super::{
-    network::register_message, Network, NetworkProvider
-};
+use super::{network::register_message, Network, NetworkProvider};
 
 #[derive(SystemParam, Debug)]
 /// A wrapper around [`Network`] that allows for the sending of [`RequestMessage`]'s.
@@ -126,31 +124,30 @@ impl<T: RequestMessage> Request<T> {
     }
 
     /// Consume the request and automatically send the response back to the client.
-    pub fn respond(self, response: T::ResponseMessage) -> Result<(), NetworkError>{
+    pub fn respond(self, response: T::ResponseMessage) -> Result<(), NetworkError> {
         let packet = NetworkPacket {
             kind: String::from(T::RESPONSE_NAME),
-            data: bincode::serialize(&ResponseInternal{
+            data: bincode::serialize(&ResponseInternal {
                 response_id: self.request_id,
-                response
-            }).map_err(|_| NetworkError::Serialization)?,
+                response,
+            })
+            .map_err(|_| NetworkError::Serialization)?,
         };
 
-        self.response_tx.try_send(packet).map_err(|_| NetworkError::SendError)
+        self.response_tx
+            .try_send(packet)
+            .map_err(|_| NetworkError::SendError)
     }
 }
 
 /// A utility trait on [`App`] to easily register [`RequestMessage`]s for servers to recieve
 pub trait AppNetworkRequestMessage {
     /// Register a server request message type to listen for on the server
-    fn listen_for_request_message<T: RequestMessage, NP: NetworkProvider>(
-        &mut self,
-    ) -> &mut Self;
+    fn listen_for_request_message<T: RequestMessage, NP: NetworkProvider>(&mut self) -> &mut Self;
 }
 
 impl AppNetworkRequestMessage for App {
-    fn listen_for_request_message<T: RequestMessage, NP: NetworkProvider>(
-        &mut self,
-    ) -> &mut Self {
+    fn listen_for_request_message<T: RequestMessage, NP: NetworkProvider>(&mut self) -> &mut Self {
         let server = self.world.get_resource::<Network<NP>>().expect("Could not find `Network`. Be sure to include the `ServerPlugin` before listening for server messages.");
 
         debug!(
@@ -174,10 +171,7 @@ impl AppNetworkRequestMessage for App {
             CoreStage::PreUpdate,
             register_message::<RequestInternal<T>, NP>,
         );
-        self.add_system_to_stage(
-            CoreStage::PreUpdate,
-            create_request_handlers::<T, NP>,
-        )
+        self.add_system_to_stage(CoreStage::PreUpdate, create_request_handlers::<T, NP>)
     }
 }
 
@@ -210,15 +204,11 @@ impl<T: RequestMessage> NetworkMessage for ResponseInternal<T> {
 /// A utility trait on [`App`] to easily register [`RequestMessage::ResponseMessage`]s for clients to recieve
 pub trait AppNetworkResponseMessage {
     /// Register a server request message type to listen for on the server
-    fn listen_for_response_message<T: RequestMessage, NP: NetworkProvider>(
-        &mut self,
-    ) -> &mut Self;
+    fn listen_for_response_message<T: RequestMessage, NP: NetworkProvider>(&mut self) -> &mut Self;
 }
 
 impl AppNetworkResponseMessage for App {
-    fn listen_for_response_message<T: RequestMessage, NP: NetworkProvider>(
-        &mut self,
-    ) -> &mut Self {
+    fn listen_for_response_message<T: RequestMessage, NP: NetworkProvider>(&mut self) -> &mut Self {
         self.insert_resource(ResponseMap::<T>::default());
         let client = self.world.get_resource::<Network<NP>>().expect("Could not find `Network`. Be sure to include the `ServerPlugin` before listening for server messages.");
 
@@ -255,7 +245,9 @@ fn create_client_response_handlers<T: RequestMessage, NP: NetworkProvider>(
 ) {
     for response in responses.iter() {
         if let Some(sender) = response_map.remove(&response.response_id) {
-            sender.try_send(response.response.clone()).expect("Internal channel closed!");
+            sender
+                .try_send(response.response.clone())
+                .expect("Internal channel closed!");
         }
     }
 }
