@@ -307,7 +307,7 @@ fn setup_ui(
     asset_server: Res<AssetServer>,
     _materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default());
 
     commands.spawn_bundle((GameChatMessages::new(),));
 
@@ -361,13 +361,14 @@ fn setup_ui(
                         .insert(MessageButton)
                         .with_children(|button| {
                             button.spawn_bundle(TextBundle {
-                                text: Text::with_section(
+                                text: Text::from_section(
                                     "Send Message!",
                                     TextStyle {
                                         font: asset_server.load("fonts/Staatliches-Regular.ttf"),
                                         font_size: 40.,
                                         color: Color::BLACK,
                                     },
+                                ).with_alignment(
                                     TextAlignment {
                                         vertical: VerticalAlign::Center,
                                         horizontal: HorizontalAlign::Center,
@@ -390,13 +391,14 @@ fn setup_ui(
                         .insert(ConnectButton)
                         .with_children(|button| {
                             button.spawn_bundle(TextBundle {
-                                text: Text::with_section(
+                                text: Text::from_section(
                                     "Connect to server",
                                     TextStyle {
                                         font: asset_server.load("fonts/Staatliches-Regular.ttf"),
                                         font_size: 40.,
                                         color: Color::BLACK,
                                     },
+                                ).with_alignment(
                                     TextAlignment {
                                         vertical: VerticalAlign::Center,
                                         horizontal: HorizontalAlign::Center,
