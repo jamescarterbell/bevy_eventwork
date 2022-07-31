@@ -368,12 +368,11 @@ fn setup_ui(
                                         font_size: 40.,
                                         color: Color::BLACK,
                                     },
-                                ).with_alignment(
-                                    TextAlignment {
-                                        vertical: VerticalAlign::Center,
-                                        horizontal: HorizontalAlign::Center,
-                                    },
-                                ),
+                                )
+                                .with_alignment(TextAlignment {
+                                    vertical: VerticalAlign::Center,
+                                    horizontal: HorizontalAlign::Center,
+                                }),
                                 ..Default::default()
                             });
                         });
@@ -398,12 +397,11 @@ fn setup_ui(
                                         font_size: 40.,
                                         color: Color::BLACK,
                                     },
-                                ).with_alignment(
-                                    TextAlignment {
-                                        vertical: VerticalAlign::Center,
-                                        horizontal: HorizontalAlign::Center,
-                                    },
-                                ),
+                                )
+                                .with_alignment(TextAlignment {
+                                    vertical: VerticalAlign::Center,
+                                    horizontal: HorizontalAlign::Center,
+                                }),
                                 ..Default::default()
                             });
                         });
