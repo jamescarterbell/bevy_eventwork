@@ -177,7 +177,10 @@ impl<NP: NetworkProvider> Network<NP> {
         if let Some(mut conn) = self.server_handle.take() {
             conn.abort();
             for conn in self.established_connections.iter() {
-                let _ = self.disconnected_connections.sender.send(*conn.key());
+                match self.disconnected_connections.sender.try_send(*conn.key()) {
+                    Ok(_) => (),
+                    Err(err) => warn!("Could not send to client because: {}", err),
+                }
             }
             self.established_connections.clear();
             self.recv_message_map.clear();

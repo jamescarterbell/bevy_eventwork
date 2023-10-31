@@ -13,10 +13,10 @@
 A simple networking plugin for Bevy designed to work with Bevy's event architecture.
 
 Using this plugin is meant to be straightforward and highly configurable.
-You simply add either the `EventworkPlugin` to the respective bevy app, the runtime you wish to use,
-and the networking provider you wish to use.  Then,
-register which kind of messages can be received through [`managers::network::AppNetworkMessage::listen_for_message`], as well as which provider you want
-to handle these messages and you
+You simply add the `EventworkPlugin` to the respective bevy app with the runtime you wish to use
+and the networking provider you wish to use. Next add your runtime to the app as the [`EventworkRuntime`] Resource.
+Then, register which kind of messages can be received through [`managers::network::AppNetworkMessage::listen_for_message`],
+as well as which provider you wantto handle these messages and you
 can start receiving packets as events of [`NetworkData<T>`].
 
 ## Example Client
@@ -38,7 +38,14 @@ fn main() {
         TcpProvider,
         bevy::tasks::TaskPool,
     >::default());
-     // We are receiving this from the server, so we need to listen for it
+
+    //Insert our runtime and the neccessary settings for the TCP transport
+    app.insert_resource(EventworkRuntime(
+        TaskPoolBuilder::new().num_threads(2).build(),
+    ));
+    app.insert_resource(NetworkSettings::default());
+
+    // We are receiving this from the server, so we need to listen for it
      app.listen_for_message::<WorldUpdate, TcpProvider>();
      app.add_system(handle_world_updates);
      app.add_system(handle_connection_events);
@@ -86,6 +93,14 @@ fn main() {
         TcpProvider,
         bevy::tasks::TaskPool,
     >::default());
+
+
+    //Insert our runtime and the neccessary settings for the TCP transport
+    app.insert_resource(EventworkRuntime(
+        TaskPoolBuilder::new().num_threads(2).build(),
+    ));
+    app.insert_resource(NetworkSettings::default());
+
      // We are receiving this from a client, so we need to listen for it!
      app.listen_for_message::<UserInput, TcpProvider>();
      app.add_system(handle_world_updates);
@@ -141,7 +156,6 @@ use managers::NetworkProvider;
 pub use runtime::EventworkRuntime;
 use runtime::JoinHandle;
 pub use runtime::Runtime;
-use tcp::NetworkSettings;
 
 use std::{
     fmt::{Debug, Display},

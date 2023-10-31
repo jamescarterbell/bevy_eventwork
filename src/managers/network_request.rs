@@ -234,13 +234,13 @@ impl AppNetworkResponseMessage for App {
             PreUpdate,
             (
                 register_message::<ResponseInternal<T>, NP>,
-                create_client_response_handlers::<T, NP>,
+                create_client_response_handlers::<T>,
             ),
         )
     }
 }
 
-fn create_client_response_handlers<T: RequestMessage, NP: NetworkProvider>(
+fn create_client_response_handlers<T: RequestMessage>(
     mut responses: EventReader<NetworkData<ResponseInternal<T::ResponseMessage>>>,
     response_map: ResMut<ResponseMap<T>>,
 ) {
