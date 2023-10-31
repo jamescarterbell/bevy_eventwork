@@ -8,7 +8,10 @@ use crate::{
     NetworkPacket,
 };
 use async_net::{TcpListener, TcpStream};
-use bevy::log::{debug, error, info, trace};
+use bevy::{
+    log::{debug, error, info, trace},
+    prelude::Resource,
+};
 use futures_lite::{AsyncReadExt, AsyncWriteExt, FutureExt, Stream};
 use std::future::Future;
 
@@ -181,7 +184,7 @@ impl NetworkProvider for TcpProvider {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 #[allow(missing_copy_implementations)]
 /// Settings to configure the network, both client and server
 pub struct NetworkSettings {

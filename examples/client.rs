@@ -1,9 +1,12 @@
 #![allow(clippy::type_complexity)]
 
 use async_net::{Ipv4Addr, SocketAddr};
-use bevy::prelude::*;
-use bevy_eventwork::{ConnectionId, Network, NetworkData, NetworkEvent};
-use std::{net::IpAddr, ops::Deref};
+use bevy::{
+    prelude::*,
+    tasks::{TaskPool, TaskPoolBuilder},
+};
+use bevy_eventwork::{ConnectionId, EventworkRuntime, Network, NetworkData, NetworkEvent};
+use std::net::IpAddr;
 
 use bevy_eventwork::tcp::{NetworkSettings, TcpProvider};
 
@@ -16,31 +19,44 @@ fn main() {
 
     // You need to add the `ClientPlugin` first before you can register
     // `ClientMessage`s
-    app.add_plugin(bevy_eventwork::EventworkPlugin::<
+    app.add_plugins(bevy_eventwork::EventworkPlugin::<
         TcpProvider,
         bevy::tasks::TaskPool,
     >::default());
 
-    app.insert_resource(bevy::tasks::TaskPoolBuilder::new().num_threads(2).build());
+    // Make sure you insert the EventworkRuntime resource with your chosen Runtime
+    app.insert_resource(EventworkRuntime(
+        TaskPoolBuilder::new().num_threads(2).build(),
+    ));
 
     // A good way to ensure that you are not forgetting to register
     // any messages is to register them where they are defined!
     shared::client_register_network_messages(&mut app);
 
-    app.add_startup_system(setup_ui);
+    app.add_systems(Startup, setup_ui);
 
-    app.add_system(handle_connect_button);
-    app.add_system(handle_message_button);
-    app.add_system(handle_incoming_messages);
-    app.add_system(handle_network_events);
+    app.add_systems(
+        Update,
+        (
+            handle_connect_button,
+            handle_message_button,
+            handle_incoming_messages,
+            handle_network_events,
+        ),
+    );
+
+    // We have to insert the TCP [`NetworkSettings`] with our chosen settings.
     app.insert_resource(NetworkSettings::default());
 
     app.init_resource::<GlobalChatSettings>();
 
-    app.add_system_to_stage(CoreStage::PostUpdate, handle_chat_area);
+    app.add_systems(PostUpdate, handle_chat_area);
 
     app.run();
 }
+
+#[derive(Resource)]
+struct NetworkTaskPool(TaskPool);
 
 ///////////////////////////////////////////////////////////////
 ////////////// Incoming Message Handler ///////////////////////
@@ -92,6 +108,7 @@ fn handle_network_events(
 ////////////// Data Definitions ///////////////////////////////
 ///////////////////////////////////////////////////////////////
 
+#[derive(Resource)]
 struct GlobalChatSettings {
     chat_style: TextStyle,
     author_style: TextStyle,
@@ -206,7 +223,7 @@ fn handle_connect_button(
     >,
     mut text_query: Query<&mut Text>,
     mut messages: Query<&mut GameChatMessages>,
-    task_pool: Res<bevy::tasks::TaskPool>,
+    task_pool: Res<EventworkRuntime<TaskPool>>,
 ) {
     let mut messages = if let Ok(messages) = messages.get_single_mut() {
         messages
@@ -216,7 +233,7 @@ fn handle_connect_button(
 
     for (interaction, children) in interaction_query.iter() {
         let mut text = text_query.get_mut(children[0]).unwrap();
-        if let Interaction::Clicked = interaction {
+        if let Interaction::Pressed = interaction {
             if net.has_connections() {
                 net.disconnect(ConnectionId { id: 0 })
                     .expect("Couldn't disconnect from server!");
@@ -226,7 +243,7 @@ fn handle_connect_button(
 
                 net.connect(
                     SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
-                    task_pool.deref(),
+                    &task_pool.0,
                     &settings,
                 );
             }
@@ -249,7 +266,7 @@ fn handle_message_button(
     };
 
     for interaction in interaction_query.iter() {
-        if let Interaction::Clicked = interaction {
+        if let Interaction::Pressed = interaction {
             match net.send_message(
                 ConnectionId { id: 0 },
                 shared::UserChatMessage {
@@ -284,7 +301,7 @@ fn handle_chat_area(
         .messages
         .iter()
         .flat_map(|msg| {
-            std::array::IntoIter::new([
+            [
                 TextSection {
                     value: format!("{}: ", msg.get_author()),
                     style: chat_settings.author_style.clone(),
@@ -293,7 +310,7 @@ fn handle_chat_area(
                     value: format!("{}\n", msg.get_text()),
                     style: chat_settings.chat_style.clone(),
                 },
-            ])
+            ]
         })
         .collect::<Vec<_>>();
 
@@ -307,51 +324,55 @@ fn setup_ui(
     asset_server: Res<AssetServer>,
     _materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
-    commands.spawn_bundle((GameChatMessages::new(),));
+    commands.spawn((GameChatMessages::new(),));
 
     commands
-        .spawn_bundle(NodeBundle {
+        .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(100.), Val::Percent(100.)),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 flex_direction: FlexDirection::ColumnReverse,
                 ..Default::default()
             },
-            color: Color::NONE.into(),
+            background_color: Color::NONE.into(),
             ..Default::default()
         })
         .with_children(|parent| {
             parent
-                .spawn_bundle(NodeBundle {
+                .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.), Val::Percent(90.)),
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(90.0),
                         ..Default::default()
                     },
                     ..Default::default()
                 })
                 .with_children(|parent| {
                     parent
-                        .spawn_bundle(TextBundle {
+                        .spawn(TextBundle {
                             ..Default::default()
                         })
                         .insert(ChatArea);
                 });
             parent
-                .spawn_bundle(NodeBundle {
+                .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.), Val::Percent(10.)),
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(10.0),
                         ..Default::default()
                     },
-                    color: Color::GRAY.into(),
+                    background_color: Color::GRAY.into(),
                     ..Default::default()
                 })
                 .with_children(|parent_button_bar| {
                     parent_button_bar
-                        .spawn_bundle(ButtonBundle {
+                        .spawn(ButtonBundle {
                             style: Style {
-                                size: Size::new(Val::Percent(50.), Val::Percent(100.)),
+                                width: Val::Percent(50.0),
+                                height: Val::Percent(100.0),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..Default::default()
@@ -360,7 +381,7 @@ fn setup_ui(
                         })
                         .insert(MessageButton)
                         .with_children(|button| {
-                            button.spawn_bundle(TextBundle {
+                            button.spawn(TextBundle {
                                 text: Text::from_section(
                                     "Send Message!",
                                     TextStyle {
@@ -369,18 +390,16 @@ fn setup_ui(
                                         color: Color::BLACK,
                                     },
                                 )
-                                .with_alignment(TextAlignment {
-                                    vertical: VerticalAlign::Center,
-                                    horizontal: HorizontalAlign::Center,
-                                }),
+                                .with_alignment(TextAlignment::Center),
                                 ..Default::default()
                             });
                         });
 
                     parent_button_bar
-                        .spawn_bundle(ButtonBundle {
+                        .spawn(ButtonBundle {
                             style: Style {
-                                size: Size::new(Val::Percent(50.), Val::Percent(100.)),
+                                width: Val::Percent(50.0),
+                                height: Val::Percent(100.0),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..Default::default()
@@ -389,7 +408,7 @@ fn setup_ui(
                         })
                         .insert(ConnectButton)
                         .with_children(|button| {
-                            button.spawn_bundle(TextBundle {
+                            button.spawn(TextBundle {
                                 text: Text::from_section(
                                     "Connect to server",
                                     TextStyle {
@@ -398,10 +417,7 @@ fn setup_ui(
                                         color: Color::BLACK,
                                     },
                                 )
-                                .with_alignment(TextAlignment {
-                                    vertical: VerticalAlign::Center,
-                                    horizontal: HorizontalAlign::Center,
-                                }),
+                                .with_alignment(TextAlignment::Center),
                                 ..Default::default()
                             });
                         });

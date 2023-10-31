@@ -1,10 +1,8 @@
 use async_net::Ipv4Addr;
-use bevy::app::ScheduleRunnerSettings;
-use bevy::prelude::*;
-use bevy_eventwork::{ConnectionId, Network, NetworkData, NetworkEvent};
+use bevy::tasks::TaskPool;
+use bevy::{prelude::*, tasks::TaskPoolBuilder};
+use bevy_eventwork::{ConnectionId, EventworkRuntime, Network, NetworkData, NetworkEvent};
 use std::net::{IpAddr, SocketAddr};
-use std::ops::Deref;
-use std::time::Duration;
 
 use bevy_eventwork::tcp::{NetworkSettings, TcpProvider};
 
@@ -12,27 +10,28 @@ mod shared;
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
-        1.0 / 60.0,
-    )));
-    app.add_plugins(MinimalPlugins);
-    app.add_plugin(bevy::log::LogPlugin::default());
-    app.insert_resource(bevy::tasks::TaskPoolBuilder::new().num_threads(2).build());
+    app.add_plugins((MinimalPlugins, bevy::log::LogPlugin::default()));
 
     // Before we can register the potential message types, we
     // need to add the plugin
-    app.add_plugin(bevy_eventwork::EventworkPlugin::<
+    app.add_plugins(bevy_eventwork::EventworkPlugin::<
         TcpProvider,
         bevy::tasks::TaskPool,
     >::default());
+
+    // Make sure you insert the EventworkRuntime resource with your chosen Runtime
+    app.insert_resource(EventworkRuntime(
+        TaskPoolBuilder::new().num_threads(2).build(),
+    ));
 
     // A good way to ensure that you are not forgetting to register
     // any messages is to register them where they are defined!
     shared::server_register_network_messages(&mut app);
 
-    app.add_startup_system(setup_networking);
-    app.add_system(handle_connection_events);
-    app.add_system(handle_messages);
+    app.add_systems(Startup, setup_networking);
+    app.add_systems(Update, (handle_connection_events, handle_messages));
+
+    // We have to insert the TCP [`NetworkSettings`] with our chosen settings.
     app.insert_resource(NetworkSettings::default());
 
     app.run();
@@ -43,7 +42,7 @@ fn main() {
 fn setup_networking(
     mut net: ResMut<Network<TcpProvider>>,
     settings: Res<NetworkSettings>,
-    runtime: Res<bevy::tasks::TaskPool>,
+    task_pool: Res<EventworkRuntime<TaskPool>>,
 ) {
     let ip_address = "127.0.0.1".parse().expect("Could not parse ip address");
 
@@ -53,7 +52,7 @@ fn setup_networking(
 
     match net.listen(
         SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
-        runtime.deref(),
+        &task_pool.0,
         &settings,
     ) {
         Ok(_) => (),
@@ -76,7 +75,7 @@ fn handle_connection_events(
 ) {
     for event in network_events.iter() {
         if let NetworkEvent::Connected(conn_id) = event {
-            commands.spawn_bundle((Player(*conn_id),));
+            commands.spawn((Player(*conn_id),));
 
             // Broadcasting sends the message to all connected players! (Including the just connected one in this case)
             net.broadcast(shared::NewChatMessage {

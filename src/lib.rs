@@ -138,8 +138,10 @@ pub use managers::{network::AppNetworkMessage, Network};
 
 mod runtime;
 use managers::NetworkProvider;
+pub use runtime::EventworkRuntime;
 use runtime::JoinHandle;
 pub use runtime::Runtime;
+use tcp::NetworkSettings;
 
 use std::{
     fmt::{Debug, Display},
@@ -204,7 +206,7 @@ impl Debug for NetworkPacket {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Event)]
 /// A network event originating from a [`NetworkClient`]
 pub enum NetworkEvent {
     /// A new client has connected
@@ -215,7 +217,7 @@ pub enum NetworkEvent {
     Error(NetworkError),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Event)]
 /// [`NetworkData`] is what is sent over the bevy event system
 ///
 /// Please check the root documentation how to up everything
@@ -269,8 +271,8 @@ impl<NP: NetworkProvider + Default, RT: Runtime> Plugin for EventworkPlugin<NP, 
     fn build(&self, app: &mut App) {
         app.insert_resource(managers::Network::new(NP::default()));
         app.add_event::<NetworkEvent>();
-        app.add_system_to_stage(
-            CoreStage::PreUpdate,
+        app.add_systems(
+            PreUpdate,
             managers::network::handle_new_incoming_connections::<NP, RT>,
         );
     }
