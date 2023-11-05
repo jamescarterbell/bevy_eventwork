@@ -182,7 +182,7 @@ fn create_request_handlers<T: RequestMessage, NP: NetworkProvider>(
     mut requests_wrapped: EventWriter<Request<T>>,
     network: Res<Network<NP>>,
 ) {
-    for request in requests.iter() {
+    for request in requests.read() {
         if let Some(connection) = &network.established_connections.get(request.source()) {
             requests_wrapped.send(Request {
                 request: request.request.clone(),
@@ -244,7 +244,7 @@ fn create_client_response_handlers<T: RequestMessage>(
     mut responses: EventReader<NetworkData<ResponseInternal<T::ResponseMessage>>>,
     response_map: ResMut<ResponseMap<T>>,
 ) {
-    for response in responses.iter() {
+    for response in responses.read() {
         if let Some(sender) = response_map.remove(&response.response_id) {
             sender
                 .try_send(response.response.clone())

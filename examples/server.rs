@@ -73,7 +73,7 @@ fn handle_connection_events(
     net: Res<Network<TcpProvider>>,
     mut network_events: EventReader<NetworkEvent>,
 ) {
-    for event in network_events.iter() {
+    for event in network_events.read() {
         if let NetworkEvent::Connected(conn_id) = event {
             commands.spawn((Player(*conn_id),));
 
@@ -92,7 +92,7 @@ fn handle_messages(
     mut new_messages: EventReader<NetworkData<shared::UserChatMessage>>,
     net: Res<Network<TcpProvider>>,
 ) {
-    for message in new_messages.iter() {
+    for message in new_messages.read() {
         let user = message.source();
 
         info!("Received message from user: {}", message.message);

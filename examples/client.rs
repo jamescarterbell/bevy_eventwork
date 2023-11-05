@@ -68,7 +68,7 @@ fn handle_incoming_messages(
 ) {
     let mut messages = messages.get_single_mut().unwrap();
 
-    for new_message in new_messages.iter() {
+    for new_message in new_messages.read() {
         messages.add(UserMessage::new(&new_message.name, &new_message.message));
     }
 }
@@ -83,7 +83,7 @@ fn handle_network_events(
     let mut text = text_query.get_mut(connect_children[0]).unwrap();
     let mut messages = messages.get_single_mut().unwrap();
 
-    for event in new_network_events.iter() {
+    for event in new_network_events.read() {
         info!("Received event");
         match event {
             NetworkEvent::Connected(_) => {
