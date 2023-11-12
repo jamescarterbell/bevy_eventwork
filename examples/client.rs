@@ -115,19 +115,18 @@ struct GlobalChatSettings {
 }
 
 impl FromWorld for GlobalChatSettings {
-    fn from_world(world: &mut World) -> Self {
-        let asset_server = world.get_resource::<AssetServer>().unwrap();
+    fn from_world(_world: &mut World) -> Self {
 
         GlobalChatSettings {
             chat_style: TextStyle {
-                font: asset_server.load("fonts/OpenSans-Regular.ttf"),
                 font_size: 20.,
                 color: Color::BLACK,
+                ..default()
             },
             author_style: TextStyle {
-                font: asset_server.load("fonts/OpenSans-Regular.ttf"),
                 font_size: 20.,
                 color: Color::RED,
+                ..default()
             },
         }
     }
@@ -321,7 +320,6 @@ fn handle_chat_area(
 
 fn setup_ui(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     _materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2dBundle::default());
@@ -385,9 +383,9 @@ fn setup_ui(
                                 text: Text::from_section(
                                     "Send Message!",
                                     TextStyle {
-                                        font: asset_server.load("fonts/Staatliches-Regular.ttf"),
-                                        font_size: 40.,
+                                       font_size: 40.,
                                         color: Color::BLACK,
+                                        ..default()
                                     },
                                 )
                                 .with_alignment(TextAlignment::Center),
@@ -412,9 +410,9 @@ fn setup_ui(
                                 text: Text::from_section(
                                     "Connect to server",
                                     TextStyle {
-                                        font: asset_server.load("fonts/Staatliches-Regular.ttf"),
                                         font_size: 40.,
                                         color: Color::BLACK,
+                                        ..default()
                                     },
                                 )
                                 .with_alignment(TextAlignment::Center),
