@@ -83,7 +83,7 @@ Simply pick the version compatible to your bevy version:
 
 | Bevy Eventwork | Bevy  |
 | :------------: | :---: |
-|       0.8      |   0.11  |
+|       0.8      |   0.12  |
 |       0.7      |   0.8  |
 
 Any version that is not compatible with the latest bevy version is in maintenance mode.
