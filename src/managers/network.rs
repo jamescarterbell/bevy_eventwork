@@ -9,8 +9,8 @@ use dashmap::DashMap;
 use futures_lite::StreamExt;
 
 use crate::{
-    error::NetworkError, network_message::NetworkMessage, AsyncChannel, Connection, ConnectionId,
-    NetworkData, NetworkEvent, NetworkPacket, Runtime,
+    error::NetworkError, network_message::NetworkMessage, runtime::EventworkRuntime, AsyncChannel,
+    Connection, ConnectionId, NetworkData, NetworkEvent, NetworkPacket, Runtime,
 };
 
 use super::{Network, NetworkProvider};
@@ -177,7 +177,10 @@ impl<NP: NetworkProvider> Network<NP> {
         if let Some(mut conn) = self.server_handle.take() {
             conn.abort();
             for conn in self.established_connections.iter() {
-                let _ = self.disconnected_connections.sender.send(*conn.key());
+                match self.disconnected_connections.sender.try_send(*conn.key()) {
+                    Ok(_) => (),
+                    Err(err) => warn!("Could not send to client because: {}", err),
+                }
             }
             self.established_connections.clear();
             self.recv_message_map.clear();
@@ -202,7 +205,7 @@ impl<NP: NetworkProvider> Network<NP> {
 
 pub(crate) fn handle_new_incoming_connections<NP: NetworkProvider, RT: Runtime>(
     mut server: ResMut<Network<NP>>,
-    runtime: Res<RT>,
+    runtime: Res<EventworkRuntime<RT>>,
     network_settings: Res<NP::NetworkSettings>,
     mut network_events: EventWriter<NetworkEvent>,
 ) {
@@ -289,7 +292,7 @@ impl AppNetworkMessage for App {
         );
         server.recv_message_map.insert(T::NAME, Vec::new());
         self.add_event::<NetworkData<T>>();
-        self.add_system_to_stage(CoreStage::PreUpdate, register_message::<T, NP>)
+        self.add_systems(PreUpdate, register_message::<T, NP>)
     }
 }
 

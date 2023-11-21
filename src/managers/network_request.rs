@@ -3,7 +3,7 @@ use std::{fmt::Debug, marker::PhantomData, sync::atomic::AtomicU64};
 use async_channel::{Receiver, Sender};
 use bevy::{
     ecs::system::SystemParam,
-    prelude::{debug, App, CoreStage, EventReader, EventWriter, Res, ResMut},
+    prelude::{debug, App, Event, EventReader, EventWriter, PreUpdate, Res, ResMut, Resource},
 };
 use dashmap::DashMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -53,7 +53,7 @@ impl<T> Response<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 /// Technically an internal type, public for use in system pram
 pub struct ResponseMap<T: RequestMessage> {
     count: AtomicU64,
@@ -109,7 +109,7 @@ impl<T: RequestMessage> NetworkMessage for RequestInternal<T> {
 
 /// A wrapper around a request that automatically handles writing
 /// the response to eventwork for network transmission.
-#[derive(Debug)]
+#[derive(Debug, Event)]
 pub struct Request<T: RequestMessage> {
     request: T,
     request_id: u64,
@@ -167,11 +167,13 @@ impl AppNetworkRequestMessage for App {
             .insert(RequestInternal::<T>::NAME, Vec::new());
         self.add_event::<NetworkData<RequestInternal<T>>>();
         self.add_event::<Request<T>>();
-        self.add_system_to_stage(
-            CoreStage::PreUpdate,
-            register_message::<RequestInternal<T>, NP>,
-        );
-        self.add_system_to_stage(CoreStage::PreUpdate, create_request_handlers::<T, NP>)
+        self.add_systems(
+            PreUpdate,
+            (
+                create_request_handlers::<T, NP>,
+                register_message::<RequestInternal<T>, NP>,
+            ),
+        )
     }
 }
 
@@ -180,7 +182,7 @@ fn create_request_handlers<T: RequestMessage, NP: NetworkProvider>(
     mut requests_wrapped: EventWriter<Request<T>>,
     network: Res<Network<NP>>,
 ) {
-    for request in requests.iter() {
+    for request in requests.read() {
         if let Some(connection) = &network.established_connections.get(request.source()) {
             requests_wrapped.send(Request {
                 request: request.request.clone(),
@@ -228,22 +230,21 @@ impl AppNetworkResponseMessage for App {
             .recv_message_map
             .insert(ResponseInternal::<T>::NAME, Vec::new());
         self.add_event::<NetworkData<ResponseInternal<T>>>();
-        self.add_system_to_stage(
-            CoreStage::PreUpdate,
-            register_message::<ResponseInternal<T>, NP>,
-        );
-        self.add_system_to_stage(
-            CoreStage::PreUpdate,
-            create_client_response_handlers::<T, NP>,
+        self.add_systems(
+            PreUpdate,
+            (
+                register_message::<ResponseInternal<T>, NP>,
+                create_client_response_handlers::<T>,
+            ),
         )
     }
 }
 
-fn create_client_response_handlers<T: RequestMessage, NP: NetworkProvider>(
+fn create_client_response_handlers<T: RequestMessage>(
     mut responses: EventReader<NetworkData<ResponseInternal<T::ResponseMessage>>>,
     response_map: ResMut<ResponseMap<T>>,
 ) {
-    for response in responses.iter() {
+    for response in responses.read() {
         if let Some(sender) = response_map.remove(&response.response_id) {
             sender
                 .try_send(response.response.clone())

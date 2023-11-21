@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 // name.
 //
 // You can have a single message be sent both ways, it simply needs
-// to implement both `ClientMessage` and `ServerMessage`.
+// to implement both `NetworkMessage" and both client and server can
+// send and recieve
 /////////////////////////////////////////////////////////////////////
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

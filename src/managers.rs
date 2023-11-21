@@ -2,6 +2,7 @@ use std::sync::{atomic::AtomicU32, Arc};
 
 use async_channel::{Receiver, Sender};
 use async_trait::async_trait;
+use bevy::prelude::Resource;
 use dashmap::DashMap;
 use futures_lite::Stream;
 
@@ -16,6 +17,7 @@ pub mod network_request;
 
 /// An instance of a [`NetworkServer`] is used to listen for new client connections
 /// using [`NetworkServer::listen`]
+#[derive(Resource)]
 pub struct Network<NP: NetworkProvider> {
     recv_message_map: Arc<DashMap<&'static str, Vec<(ConnectionId, Vec<u8>)>>>,
     established_connections: Arc<DashMap<ConnectionId, Connection>>,
@@ -33,7 +35,7 @@ pub struct Network<NP: NetworkProvider> {
 #[async_trait]
 pub trait NetworkProvider: 'static + Send + Sync {
     /// This is to configure particular protocols
-    type NetworkSettings: Send + Sync + Clone;
+    type NetworkSettings: Resource + Clone;
 
     /// The type that acts as a combined sender and reciever for a client.
     /// This type needs to be able to be split.
@@ -66,14 +68,14 @@ pub trait NetworkProvider: 'static + Send + Sync {
         network_settings: Self::NetworkSettings,
     ) -> Result<Self::Socket, NetworkError>;
 
-    /// Recieves messages from the client, forwards them to Spicy via a sender.
+    /// Recieves messages from the client, forwards them to Eventwork via a sender.
     async fn recv_loop(
         read_half: Self::ReadHalf,
         messages: Sender<NetworkPacket>,
         settings: Self::NetworkSettings,
     );
 
-    /// Sends messages to the client, receives packages from Spicy via receiver.
+    /// Sends messages to the client, receives packages from Eventwork via receiver.
     async fn send_loop(
         write_half: Self::WriteHalf,
         messages: Receiver<NetworkPacket>,
