@@ -11,7 +11,7 @@ impl Runtime for bevy::tasks::TaskPool {
     ) -> Self::JoinHandle {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            return Some(self.spawn(task));
+            Some(self.spawn(task))
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -27,7 +27,7 @@ impl Runtime for bevy::tasks::TaskPool {
     ) -> Self::JoinHandle {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            return Some(self.spawn_local(task));
+            Some(self.spawn_local(task))
         }
 
         #[cfg(target_arch = "wasm32")]

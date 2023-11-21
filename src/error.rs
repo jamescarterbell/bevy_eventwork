@@ -7,7 +7,7 @@ use crate::ConnectionId;
 pub enum NetworkError {
     /// A default error to be returned when no other type more specific type can be determined
     Error(String),
-    
+
     /// Error occured when accepting a new connection.
     Accept(std::io::Error),
 
