@@ -116,7 +116,6 @@ struct GlobalChatSettings {
 
 impl FromWorld for GlobalChatSettings {
     fn from_world(_world: &mut World) -> Self {
-
         GlobalChatSettings {
             chat_style: TextStyle {
                 font_size: 20.,
@@ -318,10 +317,7 @@ fn handle_chat_area(
     text.sections = sections;
 }
 
-fn setup_ui(
-    mut commands: Commands,
-    _materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup_ui(mut commands: Commands, _materials: ResMut<Assets<ColorMaterial>>) {
     commands.spawn(Camera2dBundle::default());
 
     commands.spawn((GameChatMessages::new(),));
@@ -383,7 +379,7 @@ fn setup_ui(
                                 text: Text::from_section(
                                     "Send Message!",
                                     TextStyle {
-                                       font_size: 40.,
+                                        font_size: 40.,
                                         color: Color::BLACK,
                                         ..default()
                                     },

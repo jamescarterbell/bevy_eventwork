@@ -22,8 +22,9 @@ can start receiving packets as events of [`NetworkData<T>`].
 ## Example Client
 ```rust,no_run
 use bevy::prelude::*;
-use bevy_eventwork::{EventworkPlugin, NetworkData, NetworkMessage, NetworkEvent, AppNetworkMessage, tcp::TcpProvider};
+use bevy_eventwork::{EventworkRuntime, EventworkPlugin, NetworkData, NetworkMessage, NetworkEvent, AppNetworkMessage, tcp::TcpProvider,tcp::NetworkSettings};
 use serde::{Serialize, Deserialize};
+use bevy::tasks::TaskPoolBuilder;
 
 #[derive(Serialize, Deserialize)]
 struct WorldUpdate;
@@ -34,7 +35,7 @@ impl NetworkMessage for WorldUpdate {
 
 fn main() {
      let mut app = App::new();
-     app.add_plugin(EventworkPlugin::<
+     app.add_plugins(EventworkPlugin::<
         TcpProvider,
         bevy::tasks::TaskPool,
     >::default());
@@ -47,20 +48,19 @@ fn main() {
 
     // We are receiving this from the server, so we need to listen for it
      app.listen_for_message::<WorldUpdate, TcpProvider>();
-     app.add_system(handle_world_updates);
-     app.add_system(handle_connection_events);
+     app.add_systems(Update, (handle_world_updates,handle_connection_events));
 }
 
 fn handle_world_updates(
     mut chunk_updates: EventReader<NetworkData<WorldUpdate>>,
 ) {
-    for chunk in chunk_updates.iter() {
+    for chunk in chunk_updates.read() {
         info!("Got chunk update!");
     }
 }
 
 fn handle_connection_events(mut network_events: EventReader<NetworkEvent>,) {
-    for event in network_events.iter() {
+    for event in network_events.read() {
         match event {
             &NetworkEvent::Connected(_) => info!("Connected to server!"),
             _ => (),
@@ -73,11 +73,11 @@ fn handle_connection_events(mut network_events: EventReader<NetworkEvent>,) {
 ## Example Server
 ```rust,no_run
 use bevy::prelude::*;
-use bevy_eventwork::{
+use bevy_eventwork::{EventworkRuntime,
     EventworkPlugin, NetworkData, NetworkMessage, Network, NetworkEvent, AppNetworkMessage,
-    tcp::TcpProvider,
+    tcp::TcpProvider,tcp::NetworkSettings
 };
-
+use bevy::tasks::TaskPoolBuilder;
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
@@ -89,7 +89,7 @@ impl NetworkMessage for UserInput {
 
 fn main() {
      let mut app = App::new();
-     app.add_plugin(EventworkPlugin::<
+     app.add_plugins(EventworkPlugin::<
         TcpProvider,
         bevy::tasks::TaskPool,
     >::default());
@@ -103,14 +103,13 @@ fn main() {
 
      // We are receiving this from a client, so we need to listen for it!
      app.listen_for_message::<UserInput, TcpProvider>();
-     app.add_system(handle_world_updates);
-     app.add_system(handle_connection_events);
+     app.add_systems(Update, (handle_world_updates,handle_connection_events));
 }
 
 fn handle_world_updates(
     mut chunk_updates: EventReader<NetworkData<UserInput>>,
 ) {
-    for chunk in chunk_updates.iter() {
+    for chunk in chunk_updates.read() {
         info!("Got chunk update!");
     }
 }
@@ -126,7 +125,7 @@ fn handle_connection_events(
     net: Res<Network<TcpProvider>>,
     mut network_events: EventReader<NetworkEvent>,
 ) {
-    for event in network_events.iter() {
+    for event in network_events.read() {
         match event {
             &NetworkEvent::Connected(conn_id) => {
                 net.send_message(conn_id, PlayerUpdate);
