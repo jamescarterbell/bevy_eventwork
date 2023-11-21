@@ -5,7 +5,7 @@ use crate::ConnectionId;
 /// Internal errors used by Spicy
 #[derive(Debug)]
 pub enum NetworkError {
-    /// A default error to be returned when no other type more specific type can be determined
+    /// A default networking error returned when no other more specific type can be determined
     Error(String),
 
     /// Error occured when accepting a new connection.
