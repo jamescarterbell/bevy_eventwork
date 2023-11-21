@@ -19,7 +19,8 @@ use std::future::Future;
 /// Provides a tcp stream and listener for eventwork.
 pub struct TcpProvider;
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl NetworkProvider for TcpProvider {
     type NetworkSettings = NetworkSettings;
 

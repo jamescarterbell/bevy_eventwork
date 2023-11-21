@@ -9,7 +9,32 @@ impl Runtime for bevy::tasks::TaskPool {
         &self,
         task: impl std::future::Future<Output = ()> + Send + 'static,
     ) -> Self::JoinHandle {
-        Some(self.spawn(task))
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            return Some(self.spawn(task));
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.spawn(task);
+            return None;
+        }
+    }
+
+    fn spawn_local(
+        &self,
+        task: impl futures_lite::Future<Output = ()> + 'static,
+    ) -> Self::JoinHandle {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            return Some(self.spawn_local(task));
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.spawn_local(task);
+            return None;
+        }
     }
 }
 
