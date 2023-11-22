@@ -32,7 +32,8 @@ pub struct Network<NP: NetworkProvider> {
 
 /// A trait used by [`NetworkServer`] to drive a server, this is responsible
 /// for generating the futures that carryout the underlying server logic.
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait NetworkProvider: 'static + Send + Sync {
     /// This is to configure particular protocols
     type NetworkSettings: Resource + Clone;

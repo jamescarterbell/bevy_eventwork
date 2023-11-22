@@ -9,8 +9,10 @@ use dashmap::DashMap;
 use futures_lite::StreamExt;
 
 use crate::{
-    error::NetworkError, network_message::NetworkMessage, runtime::EventworkRuntime, AsyncChannel,
-    Connection, ConnectionId, NetworkData, NetworkEvent, NetworkPacket, Runtime,
+    error::NetworkError,
+    network_message::NetworkMessage,
+    runtime::{run_async, EventworkRuntime},
+    AsyncChannel, Connection, ConnectionId, NetworkData, NetworkEvent, NetworkPacket, Runtime,
 };
 
 use super::{Network, NetworkProvider};
@@ -64,23 +66,26 @@ impl<NP: NetworkProvider> Network<NP> {
 
         trace!("Started listening");
 
-        self.server_handle = Some(Box::new(runtime.spawn(async move {
-            let accept = NP::accept_loop(accept_info, settings).await;
-            match accept {
-                Ok(mut listen_stream) => {
-                    while let Some(connection) = listen_stream.next().await {
-                        new_connections
-                            .send(connection)
-                            .await
-                            .expect("Connection channel has closed");
+        self.server_handle = Some(Box::new(run_async(
+            async move {
+                let accept = NP::accept_loop(accept_info, settings).await;
+                match accept {
+                    Ok(mut listen_stream) => {
+                        while let Some(connection) = listen_stream.next().await {
+                            new_connections
+                                .send(connection)
+                                .await
+                                .expect("Connection channel has closed");
+                        }
                     }
+                    Err(e) => error_sender
+                        .send(e)
+                        .await
+                        .expect("Error channel has closed."),
                 }
-                Err(e) => error_sender
-                    .send(e)
-                    .await
-                    .expect("Error channel has closed."),
-            }
-        })));
+            },
+            runtime,
+        )));
 
         Ok(())
     }
@@ -103,24 +108,27 @@ impl<NP: NetworkProvider> Network<NP> {
 
         self.connection_tasks.insert(
             task_count,
-            Box::new(runtime.spawn(async move {
-                match NP::connect_task(connect_info, settings).await {
-                    Ok(connection) => connection_event_sender
-                        .send(connection)
-                        .await
-                        .expect("Connection channel has closed"),
-                    Err(e) => network_error_sender
-                        .send(e)
-                        .await
-                        .expect("Error channel has closed."),
-                };
+            Box::new(run_async(
+                async move {
+                    match NP::connect_task(connect_info, settings).await {
+                        Ok(connection) => connection_event_sender
+                            .send(connection)
+                            .await
+                            .expect("Connection channel has closed"),
+                        Err(e) => network_error_sender
+                            .send(e)
+                            .await
+                            .expect("Error channel has closed."),
+                    };
 
-                // Remove the connection task from our dictionary of connection tasks
-                connection_task_weak
-                    .upgrade()
-                    .expect("Network dropped")
-                    .remove(&task_count);
-            })),
+                    // Remove the connection task from our dictionary of connection tasks
+                    connection_task_weak
+                        .upgrade()
+                        .expect("Network dropped")
+                        .remove(&task_count);
+                },
+                runtime,
+            )),
         );
     }
 
@@ -226,7 +234,7 @@ pub(crate) fn handle_new_incoming_connections<NP: NetworkProvider, RT: Runtime>(
         server.established_connections.insert(
                 conn_id,
                 Connection {
-                    receive_task: Box::new(runtime.spawn(async move {
+                    receive_task: Box::new(run_async(async move {
                         trace!("Starting listen task for {}", id);
                         NP::recv_loop(read_half, incoming_tx, read_network_settings).await;
 
@@ -236,8 +244,8 @@ pub(crate) fn handle_new_incoming_connections<NP: NetworkProvider, RT: Runtime>(
                                 error!("Could not send disconnected event, because channel is disconnected");
                             }
                         }
-                    })),
-                    map_receive_task: Box::new(runtime.spawn(async move{
+                    }, &runtime.0)),
+                    map_receive_task: Box::new(run_async(async move{
                         while let Ok(packet) = incoming_rx.recv().await{
                             match recv_message_map.get_mut(&packet.kind[..]) {
                                 Some(mut packets) => packets.push((conn_id, packet.data)),
@@ -246,11 +254,11 @@ pub(crate) fn handle_new_incoming_connections<NP: NetworkProvider, RT: Runtime>(
                                 }
                             }
                         }
-                    })),
-                    send_task: Box::new(runtime.spawn(async move {
+                    }, &runtime.0)),
+                    send_task: Box::new(run_async(async move {
                         trace!("Starting send task for {}", id);
                         NP::send_loop(write_half, outgoing_rx, write_network_settings).await;
-                    })),
+                    }, &runtime.0)),
                     send_message: outgoing_tx,
                     //addr: new_conn.addr,
                 },
