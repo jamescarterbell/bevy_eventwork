@@ -103,9 +103,9 @@ It will only receive minor bug fixes from my side, or community supplied ones.
 
 ## Supported Platforms
 
-- Linux
-- Windows
-- WASM (With a Wasm compatible transport provider like [BEMW](https://github.com/NoahShomette/bevy_eventwork_mod_websockets))
+- **Linux**
+- **Windows**
+- **WASM** (With a Wasm compatible transport provider like [BEMW](https://github.com/NoahShomette/bevy_eventwork_mod_websockets))
 
 The above three platforms are officially supported. **MacOS** should work but I do not have a Mac to test. If you have a Mac, and wish to test it out and report back, please let me know!
 
