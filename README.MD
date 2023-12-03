@@ -66,15 +66,11 @@ fn main() {
     ));
 
     /// Register any messages to be heard
+    ///
+    /// Now whenever a client sends a `WhisperMessage` the server will generate an event of
+    /// `NetworkData<WhisperMessage>` which your application can then handle
     app.listen_for_message::<WhisperMessage, TcpProvider>();
 }
-
-
-
-
-// Now whenever a client sends a `WhisperMessage` the server will generate an event of
-// `NetworkData<WhisperMessage>` which your application can then handle
-appbuilder.listen_for_message::<WhisperMessage, TcpProvider>();
 ```
 
 4. Listen for events of that type
