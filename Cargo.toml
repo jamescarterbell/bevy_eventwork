@@ -1,7 +1,7 @@
 [package]
 name = "bevy_eventwork"
 version = "0.8.0"
-authors = ["James <jamescarterbell@gmail.com>", "Neikos <neikos@neikos.email>"]
+authors = ["James <jamescarterbell@gmail.com>", "Neikos <neikos@neikos.email>", "Noah <noahshomette@gmail.com>"]
 edition = "2021"
 description = "Event based networking library for Bevy"
 readme = "README.md"
