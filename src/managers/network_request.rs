@@ -212,8 +212,8 @@ struct ResponseInternal<T> {
     response: T,
 }
 
-impl<T: RequestMessage> NetworkMessage for ResponseInternal<T> {
-    const NAME: &'static str = T::ResponseMessage::NAME;
+impl<T: NetworkMessage> NetworkMessage for ResponseInternal<T> {
+    const NAME: &'static str = T::NAME;
 }
 
 /// A utility trait on [`App`] to easily register [`RequestMessage::ResponseMessage`]s for clients to recieve
@@ -229,24 +229,24 @@ impl AppNetworkResponseMessage for App {
 
         debug!(
             "Registered a new ServerMessage: {}",
-            ResponseInternal::<T>::NAME
+            ResponseInternal::<T::ResponseMessage>::NAME
         );
 
         assert!(
             !client
                 .recv_message_map
-                .contains_key(ResponseInternal::<T>::NAME),
+                .contains_key(ResponseInternal::<T::ResponseMessage>::NAME),
             "Duplicate registration of ServerMessage: {}",
-            ResponseInternal::<T>::NAME
+            ResponseInternal::<T::ResponseMessage>::NAME
         );
         client
             .recv_message_map
-            .insert(ResponseInternal::<T>::NAME, Vec::new());
+            .insert(ResponseInternal::<T::ResponseMessage>::NAME, Vec::new());
         self.add_event::<NetworkData<ResponseInternal<T::ResponseMessage>>>();
         self.add_systems(
             PreUpdate,
             (
-                register_message::<ResponseInternal<T>, NP>,
+                register_message::<ResponseInternal<T::ResponseMessage>, NP>,
                 create_client_response_handlers::<T>,
             ),
         )
