@@ -237,7 +237,7 @@ impl AppNetworkResponseMessage for App {
         client
             .recv_message_map
             .insert(ResponseInternal::<T>::NAME, Vec::new());
-        self.add_event::<NetworkData<ResponseInternal<T>>>();
+        self.add_event::<NetworkData<ResponseInternal<T::ResponseMessage>>>();
         self.add_systems(
             PreUpdate,
             (
