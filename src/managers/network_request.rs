@@ -112,6 +112,7 @@ impl<T: RequestMessage> NetworkMessage for RequestInternal<T> {
 #[derive(Debug, Event)]
 pub struct Request<T: RequestMessage> {
     request: T,
+    source: ConnectionId,
     request_id: u64,
     response_tx: Sender<NetworkPacket>,
 }
@@ -121,6 +122,12 @@ impl<T: RequestMessage> Request<T> {
     #[inline(always)]
     pub fn get_request(&self) -> &T {
         &self.request
+    }
+
+    /// Read the source of the underlying request
+    #[inline(always)]
+    pub fn source(&self) -> &ConnectionId {
+        &self.source
     }
 
     /// Consume the request and automatically send the response back to the client.
@@ -188,6 +195,7 @@ fn create_request_handlers<T: RequestMessage, NP: NetworkProvider>(
                 request: request.request.clone(),
                 request_id: request.id,
                 response_tx: connection.send_message.clone(),
+                source: request.source.clone(),
             });
         }
     }
