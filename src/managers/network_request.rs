@@ -402,7 +402,7 @@ fn create_request_handlers<T: RequestMessage, NP: NetworkProvider>(
                 request: request.request.clone(),
                 request_id: request.id,
                 response_tx: connection.send_message.clone(),
-                source: request.source.clone(),
+                source: request.source,
             });
         }
     }
