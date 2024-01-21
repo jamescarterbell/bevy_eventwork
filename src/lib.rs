@@ -19,6 +19,8 @@ Then, register which kind of messages can be received through [`managers::networ
 as well as which provider you wantto handle these messages and you
 can start receiving packets as events of [`NetworkData<T>`].
 
+This plugin also supports Request/Response style messages, see that modules documentation for further info: **[Request Documentation](https://docs.rs/bevy_eventwork/latest/bevy_eventwork/managers/network_request/index.html)**
+
 ## Example Client
 ```rust,no_run
 use bevy::prelude::*;
@@ -139,7 +141,7 @@ fn handle_connection_events(
 ```
 As you can see, they are both quite similar, and provide everything a basic networked game needs.
 
-Currently, Bevy's [TaskPool] is the default runtime used by Eventwork.
+Currently, Bevy's [TaskPool](bevy::tasks::TaskPool) is the default runtime used by Eventwork.
 */
 
 /// Contains error enum.
@@ -189,10 +191,6 @@ impl<T> AsyncChannel<T> {
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 /// A [`ConnectionId`] denotes a single connection
-///
-/// Use [`ConnectionId::is_server`] whether it is a connection to a server
-/// or another. In most client/server applications this is not required as there
-/// is no ambiguity.
 pub struct ConnectionId {
     /// The key of the connection.
     pub id: u32,
@@ -220,7 +218,7 @@ impl Debug for NetworkPacket {
 }
 
 #[derive(Debug, Event)]
-/// A network event originating from a [`NetworkClient`]
+/// A network event originating from another eventwork app
 pub enum NetworkEvent {
     /// A new client has connected
     Connected(ConnectionId),
@@ -274,7 +272,7 @@ impl Connection {
     }
 }
 #[derive(Default, Copy, Clone, Debug)]
-/// The plugin to add to your bevy [`App`](bevy::prelude::App) when you want
+/// The plugin to add to your bevy [`App``] when you want
 /// to instantiate a server
 pub struct EventworkPlugin<NP: NetworkProvider, RT: Runtime = bevy::tasks::TaskPool>(
     PhantomData<(NP, RT)>,

@@ -87,7 +87,7 @@ fn handle_incoming_whisper_messages(
 
 ## Request/Response
 
-Starting with version 0.7.1, you can now automatically handle Request/Response style messaging with event work! Check the documentation for more info!
+Starting with version 0.7.1, you can now automatically handle Request/Response style messaging with event work! Check the [documentation](https://docs.rs/bevy_eventwork/latest/bevy_eventwork/managers/network_request/index.html) for more info!
 
 ## Bevy Version Compatibility
 

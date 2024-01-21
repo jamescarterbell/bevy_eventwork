@@ -1,3 +1,205 @@
+//! # Request/Response Network Messages
+//!
+//! This documentation assumes you have an app setup correctly that can send and receive normal messages. Please refer to the repository readme
+//! and the [library documentation](https://docs.rs/bevy_eventwork/latest/bevy_eventwork/index.html) for help with that.
+//!
+//! Note that in bevy_eventwork clients and servers are the same underlying thing. For this example we will assume a traiditional client/server architecture
+//! but it is important to note that eventwork doesn't make any assumptions about the topology of the network. Everything in the network is just an eventwork app.
+//!
+//! ## Overview
+//!
+//! The request/response messages in Eventwork work as follows.
+//!
+//! **Client**
+//!
+//! - Client sends a request to the Server using the [`Requester`](self::network_request::Requester) system param.
+//! - On successful sends, a [`Response`](self::network_request::Response) object is returned that will eventually return the actual response.
+//! - Client continues to poll the response in order to access the actual response.
+//! - When the client gets the response it consumes the response object and can read the response.
+//!
+//! **Server**
+//!
+//! - Server listens for requests of the given type.
+//! - When it receives a given request, it is also given a channel to send a response back in.
+//! - Server does whatever it needs to handle the request and then uses the [`Request`](self::network_request::Request) object to send a response
+//!
+//! ## Shared definitions
+//!
+//! First you need to create the messages that both the server and the client will use.
+//!
+//! ```rust
+//! use bevy::prelude::*;
+//! use bevy_eventwork::{NetworkMessage, managers::network_request::RequestMessage};
+//! use serde::{Serialize, Deserialize};
+//!
+//! /// A request sent from an eventwork app, in this case the client,
+//! /// to another eventwork app, in this case the server.
+//! /// It needs to implement [`RequestMessage`]
+//! #[derive(Debug, Serialize, Deserialize, Clone)]
+//! struct RequestStatus;
+//!
+//!
+//! impl RequestMessage for RequestStatus {
+//!     /// The type of message that the server will send back to the client.
+//!     /// It must implement [`NetworkMessage`]
+//!    type ResponseMessage = StatusResponse;
+//!    
+//!     /// A unique identifying name for the request message.
+//!    const REQUEST_NAME: &'static str = "client_request_status";
+//! }
+//!
+//! /// The response that the server will eventually return to the client
+//! #[derive(Debug, Serialize, Deserialize, Clone)]
+//! struct StatusResponse{
+//!     pub response: bool
+//! }
+//!
+//! impl NetworkMessage for StatusResponse {
+//!     const NAME: &'static str = "client_request_status_response";
+//! }
+//!
+//! ```
+//!
+//! ## Example client app
+//!
+//! Setting up our client is simple, we just need to register to listen for the *Responses* of our given request.
+//! This example has a basic implementation of how you can do a single request and poll for it
+//!
+//! ```rust
+//! use bevy::prelude::*;
+//! use bevy_eventwork::{
+//!     NetworkMessage,
+//!     ConnectionId,
+//!     tcp::TcpProvider,
+//!     managers::network_request::{
+//!     Response,
+//!     Requester,
+//!     RequestMessage,
+//!     AppNetworkResponseMessage},
+//! };
+//! use serde::{Serialize, Deserialize};
+//!
+//! # #[derive(Debug, Serialize, Deserialize, Clone)]
+//! # struct RequestStatus;
+//! # impl RequestMessage for RequestStatus {
+//! #   type ResponseMessage = StatusResponse;
+//! #   const REQUEST_NAME: &'static str = "client_request_status";
+//! # }
+//! # #[derive(Debug, Serialize, Deserialize, Clone)]
+//! # struct StatusResponse{
+//! #    pub response: bool
+//! # }
+//! # impl NetworkMessage for StatusResponse {
+//! #    const NAME: &'static str = "client_request_status_response";
+//! # }
+//!
+//! struct ClientPlugin;
+//!
+//! impl Plugin for ClientPlugin{
+//!     fn build(&self, app: &mut App){
+//!         app.listen_for_response_message::<RequestStatus, TcpProvider>();
+//!         app.add_systems(Startup, client_send_status_request);
+//!         app.add_systems(Update, poll_responses);
+//!     }
+//!
+//! }        
+//!
+//! /// A resource that will hold our response object so we can poll it every frame
+//! #[derive(Resource)]
+//! struct StatusRequest(Option<Response<StatusResponse>>);
+//!
+//! /// A system that will send the status request and then store the response object in a resource
+//! fn client_send_status_request(
+//!     net: Requester<RequestStatus, TcpProvider>,
+//!     status_request: Option<ResMut<StatusRequest>>,
+//!     mut commands: Commands,
+//! ) {
+//!     if let None = status_request {
+//!         let request_response = net.send_request(
+//!             ConnectionId { id: 0 },
+//!             RequestStatus,
+//!         );
+//!
+//!         if let Ok(response) = request_response {
+//!             commands.insert_resource(StatusRequest(Some(response)));
+//!         }
+//!     }
+//! }
+//!
+//! /// A system that will poll responses every frame.
+//! fn poll_responses(
+//!     status_request: Option<ResMut<StatusRequest>>,
+//!     mut commands: Commands,
+//! ) {
+//!     if let Some(mut res) = status_request {
+//!        if let Some(response) = res.0.take() {
+//!            let result = response.try_recv();
+//!            match result {
+//!                Ok(status) => {
+//!                   commands.remove_resource::<StatusRequest>();
+//!                     println!("status: {}", status.response);
+//!               }
+//!               Err(response) => res.0 = Some(response),
+//!            }
+//!        }
+//!     }
+//! }
+//! ```
+//!
+//! ## Example Server app
+//!
+//! Setting up our server is simple. We just need to register to listen for the *Requests* of our given request
+//!  and then add a system to receive those events.
+//!
+//! ```rust
+//! use bevy::prelude::*;
+//! use bevy_eventwork::{
+//!     NetworkMessage,
+//!     tcp::TcpProvider,
+//!     managers::network_request::{
+//!     Request,
+//!     RequestMessage,
+//!     AppNetworkRequestMessage},
+//! };
+//! use serde::{Serialize, Deserialize};
+//!
+//! # #[derive(Debug, Serialize, Deserialize, Clone)]
+//! # struct RequestStatus;
+//! # impl RequestMessage for RequestStatus {
+//! #   type ResponseMessage = StatusResponse;
+//! #   const REQUEST_NAME: &'static str = "client_request_status";
+//! # }
+//! # #[derive(Debug, Serialize, Deserialize, Clone)]
+//! # struct StatusResponse{
+//! #    pub response: bool
+//! # }
+//! # impl NetworkMessage for StatusResponse {
+//! #    const NAME: &'static str = "client_request_status_response";
+//! # }
+//!
+//! struct ServerPlugin;
+//!
+//! impl Plugin for ServerPlugin{
+//!     fn build(&self, app: &mut App){
+//!         app.listen_for_request_message::<RequestStatus, TcpProvider>();
+//!         app.add_systems(Update, handle_request_status);
+//!     }
+//!
+//! }        
+//!
+//! /// A system that will read status requests and return the current status of the app.
+//! fn handle_request_status(
+//!     mut network_events: EventReader<Request<RequestStatus>>,
+//! ){
+//!     for event in network_events.read() {
+//!         let _ = event.clone().respond(StatusResponse{
+//!             response: true    
+//!         });
+//!         
+//!     }
+//! }
+//! ```
+
 use std::{fmt::Debug, marker::PhantomData, sync::atomic::AtomicU64};
 
 use async_channel::{Receiver, Sender};
@@ -98,7 +300,7 @@ pub trait RequestMessage:
         + Debug
         + 'static;
 
-    /// The label used for the request type, same rules as [`ServerMessage`] in terms of naming.
+    /// The label used for the request type, same rules as [`NetworkMessage`] in terms of naming.
     const REQUEST_NAME: &'static str;
 }
 
@@ -112,8 +314,8 @@ impl<T: RequestMessage> NetworkMessage for RequestInternal<T> {
     const NAME: &'static str = T::REQUEST_NAME;
 }
 
-/// A wrapper around a request that automatically handles writing
-/// the response to eventwork for network transmission.
+/// A wrapper around a request that allows sending a response that will automatically be written
+///  to eventwork for network transmission.
 #[derive(Debug, Event, Clone)]
 pub struct Request<T: RequestMessage> {
     request: T,
@@ -152,18 +354,18 @@ impl<T: RequestMessage> Request<T> {
     }
 }
 
-/// A utility trait on [`App`] to easily register [`RequestMessage`]s for servers to recieve
+/// A utility trait on [`App`] to easily register [`RequestMessage`]s for the app to recieve
 pub trait AppNetworkRequestMessage {
-    /// Register a server request message type to listen for on the server
+    /// Register a request message type to listen for in the app
     fn listen_for_request_message<T: RequestMessage, NP: NetworkProvider>(&mut self) -> &mut Self;
 }
 
 impl AppNetworkRequestMessage for App {
     fn listen_for_request_message<T: RequestMessage, NP: NetworkProvider>(&mut self) -> &mut Self {
-        let server = self.world.get_resource::<Network<NP>>().expect("Could not find `Network`. Be sure to include the `ServerPlugin` before listening for server messages.");
+        let server = self.world.get_resource::<Network<NP>>().expect("Could not find `Network`. Be sure to include the `EventworkPlugin` before listening for server messages.");
 
         debug!(
-            "Registered a new ServerMessage: {}",
+            "Registered a new RequestMessage: {}",
             RequestInternal::<T>::NAME
         );
 
@@ -171,7 +373,7 @@ impl AppNetworkRequestMessage for App {
             !server
                 .recv_message_map
                 .contains_key(RequestInternal::<T>::NAME),
-            "Duplicate registration of ServerMessage: {}",
+            "Duplicate registration of RequestMessage: {}",
             RequestInternal::<T>::NAME
         );
         server
@@ -218,17 +420,17 @@ impl<T: NetworkMessage> NetworkMessage for ResponseInternal<T> {
 
 /// A utility trait on [`App`] to easily register [`RequestMessage::ResponseMessage`]s for clients to recieve
 pub trait AppNetworkResponseMessage {
-    /// Register a server request message type to listen for on the server
+    /// Register the response message from the request message type to listen for in the app
     fn listen_for_response_message<T: RequestMessage, NP: NetworkProvider>(&mut self) -> &mut Self;
 }
 
 impl AppNetworkResponseMessage for App {
     fn listen_for_response_message<T: RequestMessage, NP: NetworkProvider>(&mut self) -> &mut Self {
         self.insert_resource(ResponseMap::<T>::default());
-        let client = self.world.get_resource::<Network<NP>>().expect("Could not find `Network`. Be sure to include the `ServerPlugin` before listening for server messages.");
+        let client = self.world.get_resource::<Network<NP>>().expect("Could not find `Network`. Be sure to include the `EventworkPlugin` before listening for server messages.");
 
         debug!(
-            "Registered a new ServerMessage: {}",
+            "Registered a new ResponseMessage: {}",
             ResponseInternal::<T::ResponseMessage>::NAME
         );
 
@@ -236,7 +438,7 @@ impl AppNetworkResponseMessage for App {
             !client
                 .recv_message_map
                 .contains_key(ResponseInternal::<T::ResponseMessage>::NAME),
-            "Duplicate registration of ServerMessage: {}",
+            "Duplicate registration of ResponseMessage: {}",
             ResponseInternal::<T::ResponseMessage>::NAME
         );
         client
