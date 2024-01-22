@@ -12,11 +12,17 @@ use crate::{
 
 /// Contains logic for using [`Network`]
 pub mod network;
-/// Contains logic for making requests with expected responses to a server
+/// Contains logic for making requests with expected responses
 pub mod network_request;
 
-/// An instance of a [`NetworkProvider`] is used to listen for new client connections
-/// using [`Network::listen`]
+/// An instance of a Network that uses the provided [`NetworkProvider`] to drive itself.
+///
+/// You can use this resource to interact with the network in Bevy systems.
+/// 
+/// - Listen for new client connections using [`Network::listen`]
+/// - Connect to a server using [`Network::connect`]
+/// - Send new messages using [`Network::send_message`]
+/// - Send broadcasts to all connected clients using [`Network::broadcast`]
 #[derive(Resource)]
 pub struct Network<NP: NetworkProvider> {
     recv_message_map: Arc<DashMap<&'static str, Vec<(ConnectionId, Vec<u8>)>>>,
