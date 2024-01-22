@@ -3,8 +3,9 @@
 //! This documentation assumes you have an app setup correctly that can send and receive normal messages. Please refer to the repository readme
 //! and the [library documentation](https://docs.rs/bevy_eventwork/latest/bevy_eventwork/index.html) for help with that.
 //!
-//! Note that in bevy_eventwork clients and servers are the same underlying thing. For this example we will assume a traiditional client/server architecture
-//! but it is important to note that eventwork doesn't make any assumptions about the topology of the network. Everything in the network is just an eventwork app.
+//! Note that in bevy_eventwork clients and servers use the same plugin architecture but one (the server) will listen for connections but can't connect while listening and the other (the client) will connect to other apps but can't listen when connected.
+//! This is important to understand because both apps can request and receive from each other as long as the message type is setup to do so in that app.
+//! In this example the client is making requests to the server but if you flipped or duplicated all the message setup the server could make requests to the client.
 //!
 //! ## Overview
 //!
