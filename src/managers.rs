@@ -12,11 +12,17 @@ use crate::{
 
 /// Contains logic for using [`Network`]
 pub mod network;
-/// Contains logic for making requests with expected responses to a server
+/// Contains logic for making requests with expected responses
 pub mod network_request;
 
-/// An instance of a [`NetworkServer`] is used to listen for new client connections
-/// using [`NetworkServer::listen`]
+/// An instance of a Network that uses the provided [`NetworkProvider`] to drive itself.
+///
+/// You can use this resource to interact with the network in Bevy systems.
+///
+/// - Listen for new client connections using [`Network::listen`]
+/// - Connect to a server using [`Network::connect`]
+/// - Send new messages using [`Network::send_message`]
+/// - Send broadcasts to all connected clients using [`Network::broadcast`]
 #[derive(Resource)]
 pub struct Network<NP: NetworkProvider> {
     recv_message_map: Arc<DashMap<&'static str, Vec<(ConnectionId, Vec<u8>)>>>,
@@ -30,15 +36,15 @@ pub struct Network<NP: NetworkProvider> {
     connection_count: u32,
 }
 
-/// A trait used by [`NetworkServer`] to drive a server, this is responsible
-/// for generating the futures that carryout the underlying server logic.
+/// A trait used to drive the network. This is responsible
+/// for generating the futures that carryout the underlying app network logic.
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait NetworkProvider: 'static + Send + Sync {
     /// This is to configure particular protocols
     type NetworkSettings: Resource + Clone;
 
-    /// The type that acts as a combined sender and reciever for a client.
+    /// The type that acts as a combined sender and reciever for the network.
     /// This type needs to be able to be split.
     type Socket: Send;
 
@@ -54,7 +60,7 @@ pub trait NetworkProvider: 'static + Send + Sync {
     /// Info necessary to start a connection, an [`std::net::SocketAddr`] for instance
     type AcceptInfo: Send;
 
-    /// The output type of [`accept_loop`]
+    /// The output type of [`Self::accept_loop`]
     type AcceptStream: Stream<Item = Self::Socket> + Unpin + Send;
 
     /// This will be spawned as a background operation to continuously add new connections.
@@ -69,14 +75,14 @@ pub trait NetworkProvider: 'static + Send + Sync {
         network_settings: Self::NetworkSettings,
     ) -> Result<Self::Socket, NetworkError>;
 
-    /// Recieves messages from the client, forwards them to Eventwork via a sender.
+    /// Recieves messages over the network, forwards them to Eventwork via a sender.
     async fn recv_loop(
         read_half: Self::ReadHalf,
         messages: Sender<NetworkPacket>,
         settings: Self::NetworkSettings,
     );
 
-    /// Sends messages to the client, receives packages from Eventwork via receiver.
+    /// Sends messages over the network, receives packages from Eventwork via receiver.
     async fn send_loop(
         write_half: Self::WriteHalf,
         messages: Receiver<NetworkPacket>,
