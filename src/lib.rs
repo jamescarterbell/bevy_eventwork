@@ -280,7 +280,7 @@ pub struct EventworkPlugin<NP: NetworkProvider, RT: Runtime = bevy::tasks::TaskP
 
 impl<NP: NetworkProvider + Default, RT: Runtime> Plugin for EventworkPlugin<NP, RT> {
     fn build(&self, app: &mut App) {
-        app.insert_resource(managers::Network::new(NP::default()));
+        app.insert_resource(Network::new(NP::default()));
         app.add_event::<NetworkEvent>();
         app.add_systems(
             PreUpdate,

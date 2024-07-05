@@ -2,6 +2,7 @@
 
 use async_net::{Ipv4Addr, SocketAddr};
 use bevy::{
+    color::palettes,
     prelude::*,
     tasks::{TaskPool, TaskPoolBuilder},
 };
@@ -54,9 +55,6 @@ fn main() {
 
     app.run();
 }
-
-#[derive(Resource)]
-struct NetworkTaskPool(TaskPool);
 
 ///////////////////////////////////////////////////////////////
 ////////////// Incoming Message Handler ///////////////////////
@@ -124,7 +122,7 @@ impl FromWorld for GlobalChatSettings {
             },
             author_style: TextStyle {
                 font_size: 20.,
-                color: Color::RED,
+                color: palettes::css::RED.into(),
                 ..default()
             },
         }
@@ -358,7 +356,7 @@ fn setup_ui(mut commands: Commands, _materials: ResMut<Assets<ColorMaterial>>) {
                         height: Val::Percent(10.0),
                         ..Default::default()
                     },
-                    background_color: Color::GRAY.into(),
+                    background_color: palettes::css::GRAY.into(),
                     ..Default::default()
                 })
                 .with_children(|parent_button_bar| {

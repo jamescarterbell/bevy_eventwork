@@ -363,7 +363,7 @@ pub trait AppNetworkRequestMessage {
 
 impl AppNetworkRequestMessage for App {
     fn listen_for_request_message<T: RequestMessage, NP: NetworkProvider>(&mut self) -> &mut Self {
-        let server = self.world.get_resource::<Network<NP>>().expect("Could not find `Network`. Be sure to include the `EventworkPlugin` before listening for server messages.");
+        let server = self.world().get_resource::<Network<NP>>().expect("Could not find `Network`. Be sure to include the `EventworkPlugin` before listening for server messages.");
 
         debug!(
             "Registered a new RequestMessage: {}",
@@ -428,7 +428,7 @@ pub trait AppNetworkResponseMessage {
 impl AppNetworkResponseMessage for App {
     fn listen_for_response_message<T: RequestMessage, NP: NetworkProvider>(&mut self) -> &mut Self {
         self.insert_resource(ResponseMap::<T>::default());
-        let client = self.world.get_resource::<Network<NP>>().expect("Could not find `Network`. Be sure to include the `EventworkPlugin` before listening for server messages.");
+        let client = self.world().get_resource::<Network<NP>>().expect("Could not find `Network`. Be sure to include the `EventworkPlugin` before listening for server messages.");
 
         debug!(
             "Registered a new ResponseMessage: {}",
