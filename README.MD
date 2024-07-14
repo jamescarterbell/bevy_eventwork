@@ -131,8 +131,8 @@ The above three platforms are officially supported. **MacOS** should work but I 
 
 |                                                 Name                                                  | Version |
 | :---------------------------------------------------------------------------------------------------: | :-----: |
-|                                       eventwork_tcp (included)                                        |   0.8   |
-| bevy_eventwork_mod_websockets ([LINK](https://github.com/NoahShomette/bevy_eventwork_mod_websockets)) |   0.1   |
+|                                       eventwork_tcp (included)                                        |   0.9   |
+| bevy_eventwork_mod_websockets ([LINK](https://github.com/NoahShomette/bevy_eventwork_mod_websockets)) |   0.2   |
 
 ## Contributing
 
