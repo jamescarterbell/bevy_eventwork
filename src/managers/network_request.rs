@@ -224,7 +224,7 @@ pub struct Requester<'w, 's, T: RequestMessage, NP: NetworkProvider> {
     marker: PhantomData<&'s usize>,
 }
 
-impl<'w, 's, T: RequestMessage, NP: NetworkProvider> Requester<'w, 's, T, NP> {
+impl<T: RequestMessage, NP: NetworkProvider> Requester<'_, '_, T, NP> {
     /// Sends a request and returns an object that will eventually return the response
     pub fn send_request(
         &self,

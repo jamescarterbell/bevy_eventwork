@@ -17,7 +17,7 @@ use serde::{de::DeserializeOwned, Serialize};
 ///     const NAME: &'static str = "PlayerInfo";
 /// }
 /// ```
-
+///
 /// Marks a type as an eventwork message
 pub trait NetworkMessage: Serialize + DeserializeOwned + Send + Sync + 'static {
     /// A unique name to identify your message, this needs to be unique __across all included crates__

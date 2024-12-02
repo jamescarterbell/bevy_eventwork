@@ -4,6 +4,7 @@ use async_net::{Ipv4Addr, SocketAddr};
 use bevy::{
     color::palettes,
     prelude::*,
+    state::commands,
     tasks::{TaskPool, TaskPoolBuilder},
 };
 use bevy_eventwork::{ConnectionId, EventworkRuntime, Network, NetworkData, NetworkEvent};
@@ -88,12 +89,12 @@ fn handle_network_events(
                 messages.add(SystemMessage::new(
                     "Succesfully connected to server!".to_string(),
                 ));
-                text.sections[0].value = String::from("Disconnect");
+                text.0 = String::from("Disconnect");
             }
 
             NetworkEvent::Disconnected(_) => {
                 messages.add(SystemMessage::new("Disconnected from server!".to_string()));
-                text.sections[0].value = String::from("Connect to server");
+                text.0 = String::from("Connect to server");
             }
             NetworkEvent::Error(err) => {
                 messages.add(UserMessage::new(String::from("SYSTEM"), err.to_string()));
@@ -108,23 +109,21 @@ fn handle_network_events(
 
 #[derive(Resource)]
 struct GlobalChatSettings {
-    chat_style: TextStyle,
-    author_style: TextStyle,
+    chat_style: (TextFont, TextColor),
+    author_style: (TextFont, TextColor),
 }
 
 impl FromWorld for GlobalChatSettings {
     fn from_world(_world: &mut World) -> Self {
         GlobalChatSettings {
-            chat_style: TextStyle {
-                font_size: 20.,
-                color: Color::BLACK,
-                ..default()
-            },
-            author_style: TextStyle {
-                font_size: 20.,
-                color: palettes::css::RED.into(),
-                ..default()
-            },
+            chat_style: (
+                TextFont::from_font_size(20.0),
+                TextColor::from(Color::BLACK),
+            ),
+            author_style: (
+                TextFont::from_font_size(20.0),
+                TextColor::from(palettes::css::RED),
+            ),
         }
     }
 }
@@ -234,7 +233,7 @@ fn handle_connect_button(
                 net.disconnect(ConnectionId { id: 0 })
                     .expect("Couldn't disconnect from server!");
             } else {
-                text.sections[0].value = String::from("Connecting...");
+                text.0 = String::from("Connecting...");
                 messages.add(SystemMessage::new("Connecting to server..."));
 
                 net.connect(
@@ -285,133 +284,119 @@ struct ChatArea;
 fn handle_chat_area(
     chat_settings: Res<GlobalChatSettings>,
     messages: Query<&GameChatMessages, Changed<GameChatMessages>>,
-    mut chat_text_query: Query<&mut Text, With<ChatArea>>,
+    mut chat_text_query: Query<(Entity, &mut Text), With<ChatArea>>,
+    mut read_messages_index: Local<usize>,
+    mut commands: Commands,
 ) {
     let messages = if let Ok(messages) = messages.get_single() {
         messages
     } else {
         return;
     };
+    let (text_entity, mut text) = chat_text_query.get_single_mut().unwrap();
 
-    let sections = messages
-        .messages
-        .iter()
-        .flat_map(|msg| {
-            [
-                TextSection {
-                    value: format!("{}: ", msg.get_author()),
-                    style: chat_settings.author_style.clone(),
-                },
-                TextSection {
-                    value: format!("{}\n", msg.get_text()),
-                    style: chat_settings.chat_style.clone(),
-                },
-            ]
-        })
-        .collect::<Vec<_>>();
+    for message_index in *read_messages_index..messages.messages.len() {
+        let message = &messages.messages[message_index];
+        let new_message = commands
+            .spawn((
+                Text::new(format!("{}:", message.get_author())),
+                chat_settings.author_style.clone(),
+            ))
+            .with_child((
+                TextSpan::new(format!("{}\n", message.get_text())),
+                chat_settings.chat_style.clone(),
+            ))
+            .id();
+        commands.entity(text_entity).add_children(&[new_message]);
+    }
 
-    let mut text = chat_text_query.get_single_mut().unwrap();
-
-    text.sections = sections;
+    *read_messages_index = messages.messages.len();
 }
 
 fn setup_ui(mut commands: Commands, _materials: ResMut<Assets<ColorMaterial>>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     commands.spawn((GameChatMessages::new(),));
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 flex_direction: FlexDirection::ColumnReverse,
-                ..Default::default()
+                ..default()
             },
-            background_color: Color::NONE.into(),
-            ..Default::default()
-        })
+            Into::<BackgroundColor>::into(Color::NONE),
+        ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(90.0),
-                        ..Default::default()
-                    },
-                    ..Default::default()
+                .spawn(Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(90.0),
+                    ..default()
                 })
                 .with_children(|parent| {
                     parent
-                        .spawn(TextBundle {
-                            ..Default::default()
-                        })
+                        .spawn((
+                            Text::default(),
+                            Node {
+                                flex_direction: FlexDirection::Column,
+                                ..default()
+                            },
+                        ))
                         .insert(ChatArea);
                 });
             parent
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         width: Val::Percent(100.0),
                         height: Val::Percent(10.0),
-                        ..Default::default()
+                        ..default()
                     },
-                    background_color: palettes::css::GRAY.into(),
-                    ..Default::default()
-                })
+                    Into::<BackgroundColor>::into(palettes::css::GRAY),
+                ))
                 .with_children(|parent_button_bar| {
                     parent_button_bar
-                        .spawn(ButtonBundle {
-                            style: Style {
+                        .spawn((
+                            Button,
+                            Node {
                                 width: Val::Percent(50.0),
                                 height: Val::Percent(100.0),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
-                                ..Default::default()
+                                ..default()
                             },
-                            ..Default::default()
-                        })
+                        ))
                         .insert(MessageButton)
                         .with_children(|button| {
-                            button.spawn(TextBundle {
-                                text: Text::from_section(
-                                    "Send Message!",
-                                    TextStyle {
-                                        font_size: 40.,
-                                        color: Color::BLACK,
-                                        ..default()
-                                    },
-                                )
-                                .with_justify(JustifyText::Center),
-                                ..Default::default()
-                            });
+                            button.spawn((
+                                Text::new("Send Message!"),
+                                TextFont::from_font_size(40.0),
+                                TextColor::from(Color::BLACK),
+                                TextLayout::new_with_justify(JustifyText::Center),
+                            ));
                         });
 
                     parent_button_bar
-                        .spawn(ButtonBundle {
-                            style: Style {
+                        .spawn((
+                            Button,
+                            Node {
                                 width: Val::Percent(50.0),
                                 height: Val::Percent(100.0),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
-                                ..Default::default()
+                                ..default()
                             },
-                            ..Default::default()
-                        })
+                        ))
                         .insert(ConnectButton)
                         .with_children(|button| {
-                            button.spawn(TextBundle {
-                                text: Text::from_section(
-                                    "Connect to server",
-                                    TextStyle {
-                                        font_size: 40.,
-                                        color: Color::BLACK,
-                                        ..default()
-                                    },
-                                )
-                                .with_justify(JustifyText::Center),
-                                ..Default::default()
-                            });
+                            button.spawn((
+                                Text::new("Connect to server"),
+                                TextFont::from_font_size(40.0),
+                                TextColor::from(Color::BLACK),
+                                TextLayout::new_with_justify(JustifyText::Center),
+                            ));
                         });
                 });
         });
